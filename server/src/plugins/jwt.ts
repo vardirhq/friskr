@@ -7,12 +7,16 @@ export interface JWTPayload {
   householdId: string | null;
 }
 
+// Augment @fastify/jwt so req.user has our mapped shape after requireAuth runs
+declare module '@fastify/jwt' {
+  interface FastifyJWT {
+    user: { userId: string; householdId: string | null };
+  }
+}
+
 declare module 'fastify' {
   interface FastifyInstance {
     requireAuth: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
-  }
-  interface FastifyRequest {
-    user: { userId: string; householdId: string | null };
   }
 }
 
