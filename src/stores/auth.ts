@@ -1,10 +1,12 @@
 import { create } from 'zustand';
-import type { Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
-import { signInWithEmail as _signIn, verifyOtp as _verifyOtp, signOut as _signOut, onAuthChange } from '../lib/auth';
+import { signInWithEmail as _signIn, verifyOtp as _verifyOtp, signOut as _signOut, onAuthChange, currentUser } from '../lib/auth';
+
+interface AuthUser {
+  id: string;
+}
 
 interface AuthStore {
-  session: Session | null;
+  user: AuthUser | null;
   loading: boolean;
   init(): void;
   signInWithEmail(email: string): Promise<void>;
@@ -13,17 +15,15 @@ interface AuthStore {
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
-  session: null,
+  user: null,
   loading: true,
   init() {
-    supabase.auth.getSession().then(({ data }) => {
-      set({ session: data.session, loading: false });
-    });
+    currentUser().then((user) => set({ user, loading: false }));
     onAuthChange((signedIn) => {
       if (!signedIn) {
-        set({ session: null });
+        set({ user: null });
       } else {
-        supabase.auth.getSession().then(({ data }) => set({ session: data.session }));
+        currentUser().then((user) => set({ user }));
       }
     });
   },
@@ -32,9 +32,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
   async verifyOtp(email, token) {
     await _verifyOtp(email, token);
+    const user = await currentUser();
+    set({ user });
   },
   async signOut() {
     await _signOut();
-    set({ session: null });
+    set({ user: null });
   },
 }));

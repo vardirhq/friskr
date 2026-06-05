@@ -18,7 +18,7 @@ import { SignInScreen } from './screens/SignInScreen';
 import { CreateOrJoinScreen } from './screens/CreateOrJoinScreen';
 
 export default function App() {
-  const { session, loading: authLoading, init } = useAuthStore();
+  const { user: session, loading: authLoading, init } = useAuthStore();
   const { household, load: loadHousehold, loading: householdLoading } = useHouseholdStore();
   const stockStore = useStockStore();
   const { darkMode } = useSettingsStore();

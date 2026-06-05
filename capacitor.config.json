@@ -9,6 +9,6 @@
     }
   },
   "server": {
-    "allowNavigation": ["178.105.147.190"]
+    "allowNavigation": ["friskr.madsens.dev"]
   }
 }
