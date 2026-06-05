@@ -7,6 +7,7 @@ import { stockRoutes } from './routes/stock.js';
 import { productsRoutes } from './routes/products.js';
 import { locationsRoutes } from './routes/locations.js';
 import { householdRoutes } from './routes/household.js';
+import { scanRoutes } from './routes/scan.js';
 
 export async function buildApp(opts: FastifyServerOptions = {}) {
   const app = Fastify(opts);
@@ -18,6 +19,7 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
   await app.register(productsRoutes, { prefix: '/api' });
   await app.register(locationsRoutes, { prefix: '/api' });
   await app.register(householdRoutes, { prefix: '/api' });
+  await app.register(scanRoutes, { prefix: '/api' });
 
   app.get('/health', async () => ({ ok: true }));
 
