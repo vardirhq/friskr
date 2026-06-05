@@ -5,6 +5,7 @@ import { jwtAuthPlugin } from './plugins/jwt.js';
 import { authRoutes } from './routes/auth.js';
 import { stockRoutes } from './routes/stock.js';
 import { productsRoutes } from './routes/products.js';
+import { locationsRoutes } from './routes/locations.js';
 
 export async function buildApp(opts: FastifyServerOptions = {}) {
   const app = Fastify(opts);
@@ -14,6 +15,7 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
   await app.register(authRoutes);
   await app.register(stockRoutes, { prefix: '/api' });
   await app.register(productsRoutes, { prefix: '/api' });
+  await app.register(locationsRoutes, { prefix: '/api' });
 
   app.get('/health', async () => ({ ok: true }));
 
