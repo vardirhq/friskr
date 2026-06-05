@@ -1,16 +1,11 @@
-import { supabase } from './supabase';
+const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
-export function subscribeHousehold(householdId: string, onChange: () => void) {
-  const channel = supabase
-    .channel(`household:${householdId}`)
-    .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'stock_items',
-      filter: `household_id=eq.${householdId}`,
-    }, () => onChange())
-    .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'household_members',
-      filter: `household_id=eq.${householdId}`,
-    }, () => onChange())
-    .subscribe();
-  return () => { supabase.removeChannel(channel); };
+export function subscribeHousehold(_householdId: string, onChange: () => void): () => void {
+  const token = localStorage.getItem('friskr_jwt');
+  if (!token) return () => {};
+
+  const es = new EventSource(`${BASE}/api/realtime/household?token=${encodeURIComponent(token)}`);
+  es.onmessage = () => onChange();
+  es.onerror = () => {};
+  return () => es.close();
 }
