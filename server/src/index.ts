@@ -3,6 +3,7 @@ import Fastify, { type FastifyServerOptions } from 'fastify';
 import { corsPlugin } from './plugins/cors.js';
 import { jwtAuthPlugin } from './plugins/jwt.js';
 import { authRoutes } from './routes/auth.js';
+import { stockRoutes } from './routes/stock.js';
 
 export async function buildApp(opts: FastifyServerOptions = {}) {
   const app = Fastify(opts);
@@ -10,6 +11,7 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
   await app.register(corsPlugin);
   await app.register(jwtAuthPlugin);
   await app.register(authRoutes);
+  await app.register(stockRoutes, { prefix: '/api' });
 
   app.get('/health', async () => ({ ok: true }));
 
