@@ -1,13 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from '../db/client.js';
 import { users, otpCodes } from '../db/schema.js';
 import { createOrFindUser, issueOtp, verifyOtp } from '../lib/otp.js';
 import { cleanDb } from './helpers.js';
 import { eq } from 'drizzle-orm';
-
-vi.mock('../lib/email.js', () => ({
-  sendOtpEmail: vi.fn().mockResolvedValue(undefined),
-}));
 
 beforeEach(cleanDb);
 
@@ -51,6 +47,17 @@ describe('OTP flow', () => {
     const user = await createOrFindUser('test@example.com');
     const code = await issueOtp(user.id);
     await verifyOtp('test@example.com', code);
+    const result = await verifyOtp('test@example.com', code);
+    expect(result).toBeNull();
+  });
+
+  it('verifyOtp returns null on expired code', async () => {
+    const user = await createOrFindUser('test@example.com');
+    const code = await issueOtp(user.id);
+    // Backdate the expiry directly in the DB
+    await db.update(otpCodes)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(otpCodes.userId, user.id));
     const result = await verifyOtp('test@example.com', code);
     expect(result).toBeNull();
   });

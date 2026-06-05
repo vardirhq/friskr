@@ -1,13 +1,16 @@
-import { randomInt, randomBytes } from 'node:crypto';
+import { randomInt, randomBytes, timingSafeEqual } from 'node:crypto';
 import { eq, and, gt } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { users, otpCodes, refreshTokens } from '../db/schema.js';
 
 export async function createOrFindUser(email: string) {
-  const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  if (existing[0]) return existing[0];
-  const [created] = await db.insert(users).values({ email }).returning();
-  return created;
+  // ON CONFLICT DO UPDATE with a no-op set avoids TOCTOU between select and insert
+  const [row] = await db
+    .insert(users)
+    .values({ email })
+    .onConflictDoUpdate({ target: users.email, set: { email } })
+    .returning();
+  return row;
 }
 
 export async function issueOtp(userId: string): Promise<string> {
@@ -16,7 +19,8 @@ export async function issueOtp(userId: string): Promise<string> {
     .set({ used: true })
     .where(and(eq(otpCodes.userId, userId), eq(otpCodes.used, false)));
 
-  const code = String(randomInt(100000, 999999));
+  // randomInt(min, max) is exclusive of max — use 1_000_000 for full [100000, 999999] range
+  const code = String(randomInt(100_000, 1_000_000));
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   await db.insert(otpCodes).values({ userId, code, expiresAt });
   return code;
@@ -28,13 +32,13 @@ export async function verifyOtp(email: string, code: string): Promise<string | n
   const userId = userRows[0].id;
 
   const now = new Date();
+  // Fetch by userId only; compare code in app to avoid timing side-channel via DB query plan
   const rows = await db
     .select()
     .from(otpCodes)
     .where(
       and(
         eq(otpCodes.userId, userId),
-        eq(otpCodes.code, code),
         eq(otpCodes.used, false),
         gt(otpCodes.expiresAt, now)
       )
@@ -42,6 +46,10 @@ export async function verifyOtp(email: string, code: string): Promise<string | n
     .limit(1);
 
   if (!rows[0]) return null;
+
+  const storedBuf = Buffer.from(rows[0].code.padStart(6, '0'));
+  const inputBuf = Buffer.from(code.padStart(6, '0'));
+  if (!timingSafeEqual(storedBuf, inputBuf)) return null;
 
   await db.update(otpCodes).set({ used: true }).where(eq(otpCodes.id, rows[0].id));
   return userId;
