@@ -1,8 +1,13 @@
 import 'dotenv/config';
 import Fastify, { type FastifyServerOptions } from 'fastify';
+import { corsPlugin } from './plugins/cors.js';
+import { jwtAuthPlugin } from './plugins/jwt.js';
 
 export async function buildApp(opts: FastifyServerOptions = {}) {
   const app = Fastify(opts);
+
+  await app.register(corsPlugin);
+  await app.register(jwtAuthPlugin);
 
   app.get('/health', async () => ({ ok: true }));
 
