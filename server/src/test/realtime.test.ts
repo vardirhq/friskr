@@ -6,14 +6,12 @@ import type { FastifyInstance } from 'fastify';
 
 let app: FastifyInstance;
 let jwt: string;
-let householdId: string;
 
 beforeAll(async () => {
   await cleanDb();
   app = await createTestApp();
   const [user] = await db.insert(users).values({ email: 'sse@example.com' }).returning();
   const [hh] = await db.insert(households).values({ name: 'SSE Test', inviteCode: 'FRISK-SS01' }).returning();
-  householdId = hh.id;
   await db.insert(householdMembers).values({ householdId: hh.id, userId: user.id, role: 'owner' });
   jwt = app.jwt.sign({ sub: user.id, householdId: hh.id });
 });
