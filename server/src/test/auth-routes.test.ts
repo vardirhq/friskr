@@ -11,7 +11,7 @@ import { sendOtpEmail } from '../lib/email.js';
 let app: FastifyInstance;
 
 beforeAll(async () => { app = await createTestApp(); });
-beforeEach(cleanDb);
+beforeEach(async () => { vi.clearAllMocks(); await cleanDb(); });
 afterAll(async () => { await app.close(); });
 
 describe('POST /auth/otp/request', () => {

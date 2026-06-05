@@ -89,6 +89,8 @@ export async function rotateRefreshToken(
   return { userId: rows[0].userId, newToken };
 }
 
-export async function revokeRefreshToken(token: string): Promise<void> {
-  await db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.token, token));
+export async function revokeRefreshToken(token: string, userId: string): Promise<void> {
+  await db.update(refreshTokens).set({ revoked: true }).where(
+    and(eq(refreshTokens.token, token), eq(refreshTokens.userId, userId))
+  );
 }

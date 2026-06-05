@@ -25,7 +25,7 @@ export async function authRoutes(app: FastifyInstance) {
     }
     const user = await createOrFindUser(email.toLowerCase().trim());
     const code = await issueOtp(user.id);
-    await sendOtpEmail(email, code);
+    await sendOtpEmail(user.email, code);
     return { ok: true };
   });
 
@@ -58,12 +58,12 @@ export async function authRoutes(app: FastifyInstance) {
     return { jwt, refreshToken: result.newToken };
   });
 
-  app.post('/auth/signout', { preHandler: app.requireAuth }, async (req, reply) => {
+  app.post('/auth/signout', { preHandler: app.requireAuth }, async (req, _reply) => {
     const body = (req.body ?? {}) as { refreshToken?: string };
     const userId = req.user.userId;
     // Revoke the specific token if provided, otherwise revoke all tokens for the user
     if (body.refreshToken) {
-      await revokeRefreshToken(body.refreshToken);
+      await revokeRefreshToken(body.refreshToken, userId);
     } else {
       await db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, userId));
     }
