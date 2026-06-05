@@ -6,7 +6,6 @@ import type { FastifyInstance } from 'fastify';
 
 let app: FastifyInstance;
 let jwt: string;
-let householdId: string;
 let productId: string;
 
 beforeAll(async () => {
@@ -15,7 +14,6 @@ beforeAll(async () => {
 
   const [user] = await db.insert(users).values({ email: 'test@example.com' }).returning();
   const [hh] = await db.insert(households).values({ name: 'Test', inviteCode: 'FRISK-TEST' }).returning();
-  householdId = hh.id;
   await db.insert(householdMembers).values({
     householdId: hh.id, userId: user.id, role: 'owner', displayName: 'Tester',
   });
