@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>friskr — reimagined</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     friskr — reimagined design system
+     A Scandinavian-fresh pantry app. Warm paper, frisk green,
+     deep evergreen ink, food-honest urgency colors.
+     ───────────────────────────────────────────────────────────── */
+  :root {
+    --font: 'Schibsted Grotesk', system-ui, sans-serif;
+
+    /* accent (driven by Tweaks) */
+    --primary: #15a05a;
+    --on-primary: #ffffff;
+
+    /* radius + density (driven by Tweaks) */
+    --r: 22px;          /* base card radius */
+    --r-sm: 14px;
+    --r-lg: 30px;
+    --row-pad: 14px;    /* density */
+    --gap: 14px;
+
+    /* LIGHT theme (default) */
+    --paper: #f4f1e8;
+    --paper-2: #efeade;
+    --surface: #ffffff;
+    --surface-2: #faf8f1;
+    --ink: #15231b;
+    --ink-2: #586259;
+    --ink-3: #8b938a;
+    --line: #e7e1d3;
+    --line-2: #efebe0;
+
+    --primary-tint: color-mix(in srgb, var(--primary) 13%, var(--surface));
+    --primary-tint-2: color-mix(in srgb, var(--primary) 22%, var(--surface));
+    --on-primary-tint: color-mix(in srgb, var(--primary) 78%, #0b1f15);
+
+    --soon: #cf8a1f;
+    --soon-tint: color-mix(in srgb, #cf8a1f 15%, var(--surface));
+    --expired: #d0533c;
+    --expired-tint: color-mix(in srgb, #d0533c 14%, var(--surface));
+    --fresh: var(--primary);
+
+    --shadow-sm: 0 1px 2px rgba(28,40,32,.05), 0 1px 3px rgba(28,40,32,.04);
+    --shadow-md: 0 6px 18px -6px rgba(28,40,32,.16), 0 2px 6px rgba(28,40,32,.05);
+    --shadow-lg: 0 30px 70px -20px rgba(16,30,22,.45);
+    --statusbar-ink: #15231b;
+  }
+
+  .theme-dark {
+    --paper: #0d1310;
+    --paper-2: #0a0f0c;
+    --surface: #161f1a;
+    --surface-2: #1b2620;
+    --ink: #e9f1ea;
+    --ink-2: #9fab9f;
+    --ink-3: #6b766c;
+    --line: #25322c;
+    --line-2: #202b25;
+
+    --primary-tint: color-mix(in srgb, var(--primary) 22%, #0d1310);
+    --primary-tint-2: color-mix(in srgb, var(--primary) 34%, #0d1310);
+    --on-primary-tint: color-mix(in srgb, var(--primary) 60%, #e9f1ea);
+
+    --soon: #e6ab53;
+    --soon-tint: color-mix(in srgb, #e6ab53 20%, #0d1310);
+    --expired: #e5715c;
+    --expired-tint: color-mix(in srgb, #e5715c 20%, #0d1310);
+
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+    --shadow-md: 0 8px 20px -8px rgba(0,0,0,.55);
+    --shadow-lg: 0 30px 70px -20px rgba(0,0,0,.7);
+    --statusbar-ink: #e9f1ea;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: var(--font);
+    background:
+      radial-gradient(1200px 800px at 18% -10%, #e9f3ec 0%, transparent 55%),
+      radial-gradient(1000px 700px at 100% 110%, #f6efe0 0%, transparent 50%),
+      #ece6d7;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow: hidden;
+  }
+  body.bg-dark {
+    background:
+      radial-gradient(1100px 800px at 15% -10%, #122019 0%, transparent 55%),
+      radial-gradient(900px 700px at 100% 110%, #11160f 0%, transparent 50%),
+      #080b09;
+  }
+
+  #stage {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #scaler { transform-origin: center center; }
+
+  /* tabular numerals everywhere numbers matter */
+  .tnum { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  .noscroll { scrollbar-width: none; }
+
+  @keyframes friskr-pop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes friskr-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes friskr-sheet { from { transform: translateY(102%); } to { transform: translateY(0); } }
+  @keyframes friskr-fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes friskr-scanline { 0% { top: 8%; } 50% { top: 88%; } 100% { top: 8%; } }
+  @keyframes friskr-spin { to { transform: rotate(360deg); } }
+  @keyframes friskr-ring { from { stroke-dashoffset: var(--from-off); } to { stroke-dashoffset: var(--to-off); } }
+  @keyframes friskr-confetti { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(var(--cy)) translateX(var(--cx)) rotate(var(--cr)); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="scaler"><div id="root"></div></div>
+  </div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="friskr-icons.jsx"></script>
+  <script type="text/babel" src="friskr-data.jsx"></script>
+  <script type="text/babel" src="friskr-ui.jsx"></script>
+  <script type="text/babel" src="friskr-screens.jsx"></script>
+  <script type="text/babel" src="friskr-screens2.jsx"></script>
+  <script type="text/babel" src="friskr-app.jsx"></script>
+</body>
+</html>

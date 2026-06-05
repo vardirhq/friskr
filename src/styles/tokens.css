@@ -1,0 +1,63 @@
+:root {
+  --font: 'Schibsted Grotesk', system-ui, sans-serif;
+
+  --primary: #15a05a;
+  --on-primary: #ffffff;
+
+  --r: 22px;
+  --r-sm: 14px;
+  --r-lg: 30px;
+  --row-pad: 14px;
+  --gap: 14px;
+
+  --paper: #f4f1e8;
+  --paper-2: #efeade;
+  --surface: #ffffff;
+  --surface-2: #faf8f1;
+  --ink: #15231b;
+  --ink-2: #586259;
+  --ink-3: #8b938a;
+  --line: #e7e1d3;
+  --line-2: #efebe0;
+
+  --primary-tint: color-mix(in srgb, var(--primary) 13%, var(--surface));
+  --primary-tint-2: color-mix(in srgb, var(--primary) 22%, var(--surface));
+  --on-primary-tint: color-mix(in srgb, var(--primary) 78%, #0b1f15);
+
+  --soon: #cf8a1f;
+  --soon-tint: color-mix(in srgb, #cf8a1f 15%, var(--surface));
+  --expired: #d0533c;
+  --expired-tint: color-mix(in srgb, #d0533c 14%, var(--surface));
+  --fresh: var(--primary);
+
+  --shadow-sm: 0 1px 2px rgba(28,40,32,.05), 0 1px 3px rgba(28,40,32,.04);
+  --shadow-md: 0 6px 18px -6px rgba(28,40,32,.16), 0 2px 6px rgba(28,40,32,.05);
+  --shadow-lg: 0 30px 70px -20px rgba(16,30,22,.45);
+  --statusbar-ink: #15231b;
+}
+
+.theme-dark {
+  --paper: #0d1310;
+  --paper-2: #0a0f0c;
+  --surface: #161f1a;
+  --surface-2: #1b2620;
+  --ink: #e9f1ea;
+  --ink-2: #9fab9f;
+  --ink-3: #6b766c;
+  --line: #25322c;
+  --line-2: #202b25;
+
+  --primary-tint: color-mix(in srgb, var(--primary) 22%, #0d1310);
+  --primary-tint-2: color-mix(in srgb, var(--primary) 34%, #0d1310);
+  --on-primary-tint: color-mix(in srgb, var(--primary) 60%, #e9f1ea);
+
+  --soon: #e6ab53;
+  --soon-tint: color-mix(in srgb, #e6ab53 20%, #0d1310);
+  --expired: #e5715c;
+  --expired-tint: color-mix(in srgb, #e5715c 20%, #0d1310);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+  --shadow-md: 0 8px 20px -8px rgba(0,0,0,.55);
+  --shadow-lg: 0 30px 70px -20px rgba(0,0,0,.7);
+  --statusbar-ink: #e9f1ea;
+}

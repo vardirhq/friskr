@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&display=swap');
+@import './tokens.css';
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: var(--font);
+  background:
+    radial-gradient(1200px 800px at 18% -10%, #e9f3ec 0%, transparent 55%),
+    radial-gradient(1000px 700px at 100% 110%, #f6efe0 0%, transparent 50%),
+    #ece6d7;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
+.theme-dark body {
+  background:
+    radial-gradient(1100px 800px at 15% -10%, #122019 0%, transparent 55%),
+    radial-gradient(900px 700px at 100% 110%, #11160f 0%, transparent 50%),
+    #080b09;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.noscroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.noscroll::-webkit-scrollbar { display: none; }
+
+::-webkit-scrollbar { width: 0; height: 0; }
+
+@keyframes friskr-pop {
+  0% { transform: scale(.6); opacity: 0; }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes friskr-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes friskr-sheet {
+  from { transform: translateY(102%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes friskr-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes friskr-scanline {
+  0% { top: 8%; }
+  50% { top: 88%; }
+  100% { top: 8%; }
+}
+
+@keyframes friskr-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes friskr-confetti-fall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
