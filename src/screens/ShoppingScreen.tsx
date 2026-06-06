@@ -7,6 +7,7 @@ import { Card } from '../components/Card';
 import { Press } from '../components/Press';
 import { CatTile } from '../components/CatTile';
 import type { CategoryId } from '../lib/database.types';
+import { CATEGORIES } from '../lib/friskr';
 
 interface ShoppingItem {
   id: string;
@@ -57,6 +58,7 @@ function ShopRow({
           textDecoration: it.done ? 'line-through' : 'none',
           color: it.done ? 'var(--ink-3)' : 'var(--ink)',
         }}>{it.name}</p>
+        <p style={{ margin: '1px 0 0', fontSize: 11.5, color: 'var(--ink-3)' }}>{CATEGORIES[it.cat]?.label}</p>
       </div>
       {!it.done ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
