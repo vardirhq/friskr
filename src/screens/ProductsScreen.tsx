@@ -66,7 +66,11 @@ export function ProductsScreen() {
       <div className="noscroll" style={{ flex: 1, overflow: 'auto', padding: '2px 16px 24px', display: 'flex', flexDirection: 'column', gap: 9 }}>
         {list.length === 0 && (
           <div style={{ textAlign: 'center', padding: '46px 24px' }}>
-            <p style={{ color: 'var(--ink-3)', fontSize: 14 }}>Ingen treff</p>
+            <div style={{ width: 72, height: 72, borderRadius: 24, background: 'var(--primary-tint)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <IconSearch size={34} />
+            </div>
+            <h3 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 800 }}>Ingen treff</h3>
+            <p style={{ margin: '0 auto', fontSize: 13.5, color: 'var(--ink-3)', maxWidth: 240, lineHeight: 1.5 }}>Prøv et annet søk eller opprett et nytt produkt.</p>
           </div>
         )}
         {list.map((p) => (
