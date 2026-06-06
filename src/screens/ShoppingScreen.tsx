@@ -128,9 +128,9 @@ export function ShoppingScreen() {
     setItems((prev) => prev.filter((i) => !i.done));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* SubHeader */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px 6px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: 'calc(8px + env(safe-area-inset-top)) 12px 6px' }}>
         <Press
           onClick={() => setTab('home')}
           style={{ width: 40, height: 40, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-2)', flexShrink: 0 }}
@@ -143,7 +143,7 @@ export function ShoppingScreen() {
         )}
       </div>
 
-      <div className="noscroll" style={{ flex: 1, overflow: 'auto', padding: '4px 16px 24px' }}>
+      <div className="noscroll" style={{ flex: 1, overflow: 'auto', padding: '4px 16px calc(24px + env(safe-area-inset-bottom))' }}>
         {/* add field */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface)', border: '1.5px solid var(--line)', borderRadius: 'var(--r-sm)', padding: '4px 6px 4px 16px', boxShadow: 'var(--shadow-sm)', marginBottom: 18 }}>
           <IconPlus size={19} style={{ color: 'var(--ink-3)' } as React.CSSProperties} />

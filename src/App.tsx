@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { App as CapApp } from '@capacitor/app';
 import { useAuthStore } from './stores/auth';
 import { useHouseholdStore } from './stores/household';
 import { useStockStore } from './stores/stock';
@@ -25,7 +26,7 @@ export default function App() {
   const { user: session, loading: authLoading, init } = useAuthStore();
   const { household, load: loadHousehold, loading: householdLoading } = useHouseholdStore();
   const stockStore = useStockStore();
-  const { darkMode } = useSettingsStore();
+  const { darkMode, accent } = useSettingsStore();
   const { tab, sheet, toast, setTab, closeSheet, dismissToast } = useUiStore();
 
   // bootstrap
@@ -36,10 +37,32 @@ export default function App() {
     document.documentElement.classList.toggle('theme-dark', darkMode);
   }, [darkMode]);
 
+  // accent color
+  useEffect(() => {
+    document.documentElement.style.setProperty('--primary', accent);
+  }, [accent]);
+
   // load household once authed
   useEffect(() => {
     if (session) loadHousehold();
   }, [session]);
+
+  // android back button
+  const tabRef = useRef(tab);
+  const sheetRef = useRef(sheet);
+  tabRef.current = tab;
+  sheetRef.current = sheet;
+  useEffect(() => {
+    const SUB_PARENT: Record<string, string> = { account: 'settings', locations: 'settings', shopping: 'home', stats: 'home' };
+    const listener = CapApp.addListener('backButton', () => {
+      if (sheetRef.current) { closeSheet(); return; }
+      const t = tabRef.current;
+      if (t in SUB_PARENT) { setTab(SUB_PARENT[t] as Parameters<typeof setTab>[0]); return; }
+      if (t !== 'home') { setTab('home'); return; }
+      CapApp.exitApp();
+    });
+    return () => { listener.then((h) => h.remove()); };
+  }, []);
 
   // load stock + subscribe realtime once household is known
   useEffect(() => {
@@ -92,13 +115,13 @@ export default function App() {
   const isSubScreen = !MAIN_TABS.includes(tab);
 
   return (
-    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--paper)', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--paper)', overflow: 'hidden' }}>
       {isSubScreen ? (
         <ActiveScreen />
       ) : (
         <>
-          {/* scrollable screen area */}
-          <div className="noscroll" style={{ flex: 1, overflowY: 'auto', paddingBottom: 68 }}>
+          {/* scrollable screen area — paddingBottom clears the FAB overhang */}
+          <div className="noscroll" style={{ flex: 1, overflowY: 'auto', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 36 }}>
             <ActiveScreen />
           </div>
 

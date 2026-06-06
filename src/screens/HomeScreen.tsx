@@ -181,9 +181,9 @@ export function HomeScreen() {
               }}>{unreadCount}</span>
             )}
           </Press>
-          <div style={{ width: 40, height: 40, borderRadius: 999, background: me?.hue != null ? `hsl(${me.hue} 45% 42%)` : 'hsl(145 45% 42%)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16 }}>
+          <Press onClick={() => setTab('settings')} style={{ width: 40, height: 40, borderRadius: 999, background: me?.hue != null ? `hsl(${me.hue} 45% 42%)` : 'hsl(145 45% 42%)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16 }}>
             {me?.initial ?? '?'}
-          </div>
+          </Press>
         </div>
 
         {notifOpen && (
@@ -228,7 +228,7 @@ export function HomeScreen() {
                 {[
                   { c: 'var(--expired)', n: counts.expired, l: 'Utløpt', k: 'expired' },
                   { c: 'var(--soon)', n: counts.soon, l: 'Utløper snart', k: 'soon' },
-                  { c: 'var(--primary)', n: counts.fresh, l: 'Ferske', k: 'fresh' },
+                  { c: '#15a05a', n: counts.fresh, l: 'Ferske', k: 'fresh' },
                 ].map((r) => (
                   <Press key={r.k} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ width: 10, height: 10, borderRadius: 999, background: r.c, flexShrink: 0 }} />

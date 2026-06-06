@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { householdMembers, refreshTokens } from '../db/schema.js';
+import { householdMembers, refreshTokens, users, stockItems } from '../db/schema.js';
 import { sendOtpEmail } from '../lib/email.js';
 import {
   createOrFindUser, issueOtp, verifyOtp,
@@ -61,12 +61,37 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/auth/signout', { preHandler: app.requireAuth }, async (req, _reply) => {
     const body = (req.body ?? {}) as { refreshToken?: string };
     const userId = req.user.userId;
-    // Revoke the specific token if provided, otherwise revoke all tokens for the user
     if (body.refreshToken) {
       await revokeRefreshToken(body.refreshToken, userId);
     } else {
       await db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, userId));
     }
+    return { ok: true };
+  });
+
+  app.get('/api/me', { preHandler: app.requireAuth }, async (req, reply) => {
+    const { userId } = req.user;
+    const [user] = await db.select({ id: users.id, email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) return reply.code(404).send({ error: 'User not found', code: 'NOT_FOUND' });
+    return user;
+  });
+
+  app.patch('/api/me', { preHandler: app.requireAuth }, async (req, reply) => {
+    const { userId, householdId } = req.user;
+    const { displayName } = (req.body ?? {}) as { displayName?: string };
+    if (!displayName?.trim()) return reply.code(400).send({ error: 'displayName required', code: 'INVALID_INPUT' });
+    if (householdId) {
+      await db.update(householdMembers)
+        .set({ displayName: displayName.trim() })
+        .where(eq(householdMembers.userId, userId));
+    }
+    return { ok: true };
+  });
+
+  app.delete('/api/me', { preHandler: app.requireAuth }, async (req, _reply) => {
+    const { userId } = req.user;
+    await db.update(stockItems).set({ addedBy: null }).where(eq(stockItems.addedBy, userId));
+    await db.delete(users).where(eq(users.id, userId));
     return { ok: true };
   });
 }

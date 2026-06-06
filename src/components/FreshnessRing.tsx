@@ -13,7 +13,7 @@ export function FreshnessRing({ fresh, soon, expired, size = 132, stroke = 13 }:
   const segs = [
     { v: expired, c: 'var(--expired)' },
     { v: soon, c: 'var(--soon)' },
-    { v: fresh, c: 'var(--primary)' },
+    { v: fresh, c: '#15a05a' },
   ].filter((s) => s.v > 0);
   let acc = 0;
   const gap = segs.length > 1 ? 0.012 * C : 0;

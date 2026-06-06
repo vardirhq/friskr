@@ -170,9 +170,12 @@ export function LocationsScreen() {
   useEffect(() => {
     if (!household) return;
     setLoading(true);
+    const timeout = setTimeout(() => setLoading(false), 8000);
     listLocations(household.id)
       .then(setLocations)
-      .finally(() => setLoading(false));
+      .catch(() => {})
+      .finally(() => { clearTimeout(timeout); setLoading(false); });
+    return () => clearTimeout(timeout);
   }, [household?.id]);
 
   const counts: Record<string, number> = {};
@@ -206,9 +209,9 @@ export function LocationsScreen() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* SubHeader */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px 6px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: 'calc(8px + env(safe-area-inset-top)) 12px 6px' }}>
         <Press
           onClick={() => setTab('settings')}
           style={{ width: 40, height: 40, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-2)', flexShrink: 0 }}
@@ -218,7 +221,7 @@ export function LocationsScreen() {
         <h1 style={{ margin: 0, flex: 1, fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>Plasseringer</h1>
       </div>
 
-      <div className="noscroll" style={{ flex: 1, overflow: 'auto', padding: '4px 16px 24px' }}>
+      <div className="noscroll" style={{ flex: 1, overflow: 'auto', padding: '4px 16px calc(24px + env(safe-area-inset-bottom))' }}>
         <p style={{ margin: '0 4px 16px', fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>
           Steder du lagrer mat. Hver vare hører til én plassering — frysere forlenger holdbarheten automatisk.
         </p>

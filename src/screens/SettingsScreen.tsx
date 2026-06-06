@@ -152,7 +152,7 @@ export function SettingsScreen() {
 
       <Section title="Om">
         <Row icon={IconSpark} label="Se introduksjon" sub="Gjennomgå oppsettet på nytt" onClick={() => openSheet({ type: 'onboarding' })} />
-        <Row icon={IconLeaf} label="friskr" sub="Versjon 1.0 · Norge" right={<span className="tnum" style={{ fontSize: 12, color: 'var(--ink-3)' }}>1.0.0</span>} last />
+        <Row icon={IconLeaf} label="friskr" sub="Versjon 2.0 · Norge" right={<span className="tnum" style={{ fontSize: 12, color: 'var(--ink-3)' }}>2.0.0</span>} last />
       </Section>
 
       <Press onClick={signOut} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', padding: '14px', marginBottom: 8, borderRadius: 'var(--r-sm)', background: 'var(--expired-tint)', color: 'var(--expired)', fontSize: 14.5, fontWeight: 700 }}>

@@ -164,6 +164,7 @@ export function ScanScreen() {
                 <p style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{isNew ? 'Ukjent strekkode' : product.name}</p>
                 <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'var(--ink-3)' }}>{product.brand || CATEGORIES[product.cat]?.label}</p>
               </div>
+              {!isNew && <span style={{ color: 'var(--primary)', display: 'flex' }}><IconCheckCircle size={26} /></span>}
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <Btn variant="ghost" onClick={reset} style={{ flex: 1 }}>Skann på nytt</Btn>

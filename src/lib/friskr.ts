@@ -176,6 +176,18 @@ export async function deleteLocation(id: string): Promise<void> {
   await api.delete(`/api/locations/${id}`);
 }
 
+export async function getMe(): Promise<{ id: string; email: string }> {
+  return api.get('/api/me');
+}
+
+export async function updateMe(displayName: string): Promise<void> {
+  await api.patch('/api/me', { displayName });
+}
+
+export async function deleteMe(): Promise<void> {
+  await api.delete('/api/me');
+}
+
 export async function scanLookup(barcode: string) {
   return api.get<
     | { source: 'catalogue'; product: Product }

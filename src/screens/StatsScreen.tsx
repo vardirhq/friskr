@@ -45,9 +45,9 @@ export function StatsScreen() {
   const wasteMax = Math.max(...wasteByCat.map(([, n]) => n), 1);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* SubHeader */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px 6px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: 'calc(8px + env(safe-area-inset-top)) 12px 6px' }}>
         <Press
           onClick={() => setTab('home')}
           style={{ width: 40, height: 40, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-2)', flexShrink: 0 }}
@@ -57,7 +57,7 @@ export function StatsScreen() {
         <h1 style={{ margin: 0, flex: 1, fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>Matsvinn</h1>
       </div>
 
-      <div className="noscroll" style={{ flex: 1, overflow: 'auto', padding: '4px 16px 24px' }}>
+      <div className="noscroll" style={{ flex: 1, overflow: 'auto', padding: '4px 16px calc(24px + env(safe-area-inset-bottom))' }}>
         {/* hero */}
         <Card pad={20} style={{ marginBottom: 14, background: 'linear-gradient(140deg, var(--primary-tint), var(--surface) 80%)', border: '1px solid color-mix(in srgb, var(--primary) 22%, var(--line))' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
