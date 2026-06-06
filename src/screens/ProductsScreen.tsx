@@ -13,7 +13,7 @@ import { IconSearch, IconX, IconPlus } from '../components/icons';
 export function ProductsScreen() {
   const { items } = useStockStore();
   const { household } = useHouseholdStore();
-  const { openSheet } = useUiStore();
+  const { openSheet, showToast } = useUiStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('all');
@@ -38,7 +38,7 @@ export function ProductsScreen() {
       <div style={{ padding: '14px 16px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 2px 14px' }}>
           <h1 style={{ margin: 0, fontSize: 25, fontWeight: 800, letterSpacing: -0.5 }}>Produkter</h1>
-          <Press onClick={() => openSheet({ type: 'add' })} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 999, background: 'var(--primary)', color: 'var(--on-primary)', fontSize: 13, fontWeight: 700 }}>
+          <Press onClick={() => showToast('Kommer snart')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 999, background: 'var(--primary)', color: 'var(--on-primary)', fontSize: 13, fontWeight: 700 }}>
             <IconPlus size={17} strokeWidth={2.2} /> Nytt
           </Press>
         </div>
