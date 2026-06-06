@@ -5,9 +5,15 @@ interface SettingsStore {
   darkMode: boolean;
   pushEnabled: boolean;
   notifyDaysAhead: number;
+  accent: string;
+  density: 'compact' | 'regular' | 'comfy';
+  language: string;
   setDark(v: boolean): void;
   setPush(v: boolean): void;
   setNotifyDays(n: number): void;
+  setAccent(v: string): void;
+  setDensity(v: 'compact' | 'regular' | 'comfy'): void;
+  setLanguage(v: string): void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -16,9 +22,15 @@ export const useSettingsStore = create<SettingsStore>()(
       darkMode: false,
       pushEnabled: true,
       notifyDaysAhead: 3,
+      accent: '#15a05a',
+      density: 'regular',
+      language: 'nb',
       setDark: (darkMode) => set({ darkMode }),
       setPush: (pushEnabled) => set({ pushEnabled }),
       setNotifyDays: (notifyDaysAhead) => set({ notifyDaysAhead: Math.max(1, Math.min(14, notifyDaysAhead)) }),
+      setAccent: (accent) => set({ accent }),
+      setDensity: (density) => set({ density }),
+      setLanguage: (language) => set({ language }),
     }),
     { name: 'friskr-settings' },
   ),

@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import { useState, type ComponentType } from 'react';
 import { useHouseholdStore } from '../stores/household';
 import { useAuthStore } from '../stores/auth';
 import { useSettingsStore } from '../stores/settings';
@@ -8,6 +8,7 @@ import { Press } from '../components/Press';
 import {
   IconHome, IconUsers, IconBell, IconClock, IconMoon, IconGlobe,
   IconLocFridge, IconSpark, IconLeaf, IconLogout, IconChevR, IconPlus, IconMinus,
+  IconBox, IconCheck,
 } from '../components/icons';
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
@@ -47,17 +48,24 @@ function Section({ title, children }: { title?: string; children: React.ReactNod
 
 export function SettingsScreen() {
   const { household } = useHouseholdStore();
-  const { signOut } = useAuthStore();
-  const { darkMode, pushEnabled, notifyDaysAhead, setDark, setPush, setNotifyDays } = useSettingsStore();
-  const { openSheet } = useUiStore();
-  const member = household?.members[0];
+  const { signOut, user } = useAuthStore();
+  const { darkMode, pushEnabled, notifyDaysAhead, accent, density, language, setDark, setPush, setNotifyDays, setAccent, setDensity } = useSettingsStore();
+  const { openSheet, setTab } = useUiStore();
+  const member = household?.members.find(m => m.userId === user?.id) ?? household?.members[0];
+
+  const [langOpen, setLangOpen] = useState(false);
+
+  const ACCENTS = [['#15a05a','Grønn'],['#0e9488','Teal'],['#3b82c4','Blå'],['#c2410c','Oransje'],['#7c5cd6','Lilla'],['#d4842a','Amber']] as const;
+  const DENSITIES = [['compact','Kompakt'],['regular','Normal'],['comfy','Luftig']] as const;
+  const LANGS = [['nb','Norsk (bokmål)'],['nn','Norsk (nynorsk)'],['en','English']] as const;
+  const langLabel = (LANGS.find(l => l[0] === language) ?? LANGS[0])[1];
 
   return (
     <div className="noscroll" style={{ height: '100%', overflow: 'auto', padding: '14px 16px 24px' }}>
       <h1 style={{ margin: '0 2px 16px', fontSize: 25, fontWeight: 800, letterSpacing: -0.5 }}>Innstillinger</h1>
 
       {/* profile */}
-      <Card pad={16} style={{ marginBottom: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
+      <Card pad={16} onClick={() => setTab('account')} style={{ marginBottom: 18, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
         <div style={{ width: 54, height: 54, borderRadius: 999, background: `hsl(${member?.hue ?? 145} 45% 42%)`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 22 }}>
           {member?.initial ?? '?'}
         </div>
@@ -95,10 +103,51 @@ export function SettingsScreen() {
         </div>
       </Section>
 
-      <Section title="Innstillinger">
+      <Section title="Utseende">
+        {/* Accent color row */}
+        <div style={{ padding: '13px 4px 4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 13 }}>
+            <span style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--primary-tint)', color: 'var(--on-primary-tint)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconSpark size={20} /></span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700 }}>Aksentfarge</p>
+              <p style={{ margin: '1px 0 0', fontSize: 12.5, color: 'var(--ink-3)' }}>{(ACCENTS.find(a => a[0] === accent) ?? ACCENTS[0])[1]}</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 12, paddingBottom: 6, flexWrap: 'wrap' }}>
+            {ACCENTS.map(([hex, name]) => {
+              const on = accent === hex;
+              return (
+                <Press key={hex} onClick={() => setAccent(hex)} aria-label={name} style={{ width: 38, height: 38, borderRadius: 999, background: hex, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: on ? '0 0 0 2.5px var(--surface), 0 0 0 5px ' + hex : 'inset 0 0 0 1px rgba(0,0,0,.08)', transition: 'box-shadow .15s' }}>
+                  {on && <IconCheck size={18} strokeWidth={3} style={{ color: '#fff' }} />}
+                </Press>
+              );
+            })}
+          </div>
+        </div>
         <Row icon={IconMoon} label="Mørk modus" tint="var(--surface-2)" ic="var(--ink-2)" right={<Toggle on={darkMode} onClick={() => setDark(!darkMode)} />} />
-        <Row icon={IconGlobe} label="Språk" sub="Norsk (bokmål)" tint="var(--surface-2)" ic="var(--ink-2)" right={<span />} />
-        <Row icon={IconLocFridge} label="Plasseringer" sub="Kjøleskap, Fryser, Spiskammer" tint="var(--surface-2)" ic="var(--ink-2)" last right={<span />} />
+        {/* Density picker */}
+        <div style={{ padding: '13px 4px 6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 11 }}>
+            <span style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--surface-2)', color: 'var(--ink-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconBox size={20} /></span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700 }}>Visning</p>
+              <p style={{ margin: '1px 0 0', fontSize: 12.5, color: 'var(--ink-3)' }}>Hvor tett listene vises</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 7, background: 'var(--surface-2)', borderRadius: 12, padding: 4 }}>
+            {DENSITIES.map(([key, label]) => {
+              const on = density === key;
+              return (
+                <Press key={key} onClick={() => setDensity(key as 'compact' | 'regular' | 'comfy')} style={{ flex: 1, padding: '9px 6px', borderRadius: 9, fontSize: 13, fontWeight: 700, textAlign: 'center', background: on ? 'var(--surface)' : 'transparent', color: on ? 'var(--ink)' : 'var(--ink-3)', boxShadow: on ? 'var(--shadow-sm)' : 'none', transition: 'background .15s' }}>{label}</Press>
+              );
+            })}
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Innstillinger">
+        <Row icon={IconGlobe} label="Språk" sub={langLabel} tint="var(--surface-2)" ic="var(--ink-2)" onClick={() => setLangOpen(true)} />
+        <Row icon={IconLocFridge} label="Plasseringer" sub="Kjøleskap, Fryser, Spiskammer" tint="var(--surface-2)" ic="var(--ink-2)" onClick={() => setTab('locations')} last />
       </Section>
 
       <Section title="Om">
@@ -109,6 +158,26 @@ export function SettingsScreen() {
       <Press onClick={signOut} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', padding: '14px', marginBottom: 8, borderRadius: 'var(--r-sm)', background: 'var(--expired-tint)', color: 'var(--expired)', fontSize: 14.5, fontWeight: 700 }}>
         <IconLogout size={19} /> Logg ut
       </Press>
+
+      {langOpen && (
+        <>
+          <div onClick={() => setLangOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,.4)' }} />
+          <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100, background: 'var(--surface)', borderRadius: 'var(--r) var(--r) 0 0', padding: '20px 16px 32px', boxShadow: 'var(--shadow-lg)' }}>
+            <p style={{ margin: '0 2px 16px', fontSize: 17, fontWeight: 800 }}>Språk</p>
+            {LANGS.map(([code, name]) => {
+              const on = language === code;
+              return (
+                <Press key={code} onClick={() => { useSettingsStore.getState().setLanguage(code); setLangOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 4px', borderBottom: '1px solid var(--line-2)', width: '100%' }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: on ? 800 : 600, color: on ? 'var(--primary)' : 'var(--ink)' }}>{name}</p>
+                  </div>
+                  {on && <IconCheck size={18} style={{ color: 'var(--primary)' }} />}
+                </Press>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
