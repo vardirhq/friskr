@@ -11,6 +11,15 @@ import {
   IconPhone, IconKey, IconUsers, IconArrowR, IconQr,
 } from '../components/icons';
 
+function MailIcon() {
+  return (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <rect x={2} y={4} width={20} height={16} rx={2} />
+      <path d="M2 7l10 7 10-7" />
+    </svg>
+  );
+}
+
 interface HouseholdScreenProps {
   onClose: () => void;
 }
@@ -47,6 +56,19 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
   const [mode, setMode] = useState<'manage' | 'join'>('manage');
   const [joinCode, setJoinCode] = useState('');
   const [copied, setCopied] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [pendingInvites, setPendingInvites] = useState<Array<{ id: string; email: string; sentAt: number }>>([]);
+
+  const withdrawInvite = (id: string) => setPendingInvites(p => p.filter(i => i.id !== id));
+  const sendInvite = () => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
+      showToast('Ugyldig e-postadresse', 'x');
+      return;
+    }
+    setPendingInvites(p => [...p, { id: Math.random().toString(36).slice(2), email: inviteEmail, sentAt: Date.now() }]);
+    showToast('Invitasjon sendt', 'check');
+    setInviteEmail('');
+  };
 
   const copy = () => {
     try { navigator.clipboard?.writeText(household!.code); } catch (e) {}
@@ -120,6 +142,38 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
                   </span>
                 </div>
               ))}
+            </Card>
+
+            {pendingInvites.length > 0 && (
+              <>
+                <p style={{ margin: '0 4px 8px', fontSize: 12, fontWeight: 800, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 0.6 }}>Ventende invitasjoner</p>
+                <Card pad={4} style={{ padding: '4px 14px', marginBottom: 16 }}>
+                  {pendingInvites.map((inv, i) => (
+                    <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 4px', borderBottom: i === pendingInvites.length - 1 ? 'none' : '1px solid var(--line-2)', color: 'var(--ink-2)' }}>
+                      <MailIcon />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv.email}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--ink-3)' }}>sendt {Math.max(0, Math.floor((Date.now() - inv.sentAt) / 86400000))} dager siden</p>
+                      </div>
+                      <Press onClick={() => withdrawInvite(inv.id)} style={{ fontSize: 12.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--ink-2)' }}>Trekk</Press>
+                    </div>
+                  ))}
+                </Card>
+              </>
+            )}
+
+            <p style={{ margin: '0 4px 8px', fontSize: 12, fontWeight: 800, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 0.6 }}>Inviter på e-post</p>
+            <Card pad={14} style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="email"
+                  placeholder="navn@eksempel.no"
+                  value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)}
+                  style={{ flex: 1, fontSize: 14, fontFamily: 'var(--font)', border: '1.5px solid var(--line)', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', padding: '10px 12px', color: 'var(--ink)', outline: 'none', minWidth: 0 }}
+                />
+                <Press onClick={sendInvite} style={{ fontSize: 13.5, fontWeight: 800, padding: '10px 16px', borderRadius: 'var(--r-sm)', background: 'var(--primary)', color: 'var(--on-primary)', flexShrink: 0 }}>Send</Press>
+              </div>
             </Card>
 
             {/* "Ny telefon?" explainer */}
