@@ -271,7 +271,7 @@ export function HomeScreen() {
             {[
               { i: IconScan, l: 'Skann', a: () => setTab('scan') },
               { i: IconPlus, l: 'Legg til', a: () => openSheet({ type: 'add' }) },
-              { i: IconCart, l: 'Handleliste', a: () => showToast('Handleliste kommer snart', 'cart') },
+              { i: IconCart, l: 'Handleliste', a: () => setTab('shopping') },
             ].map((q, idx) => (
               <Press key={idx} onClick={q.a} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '15px 6px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--r-sm)', boxShadow: 'var(--shadow-sm)' }}>
                 <span style={{ width: 38, height: 38, borderRadius: 12, background: 'var(--primary-tint)', color: 'var(--on-primary-tint)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><q.i size={20} /></span>
