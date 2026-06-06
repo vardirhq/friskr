@@ -7,7 +7,7 @@ import { Segmented } from '../components/Segmented';
 import { CatTile } from '../components/CatTile';
 import { StatusPill } from '../components/StatusPill';
 import { Press } from '../components/Press';
-import { IconCheckCircle, IconLeaf, IconCheck, IconTrash, ICON_MAP } from '../components/icons';
+import { IconCheckCircle, IconLeaf, IconCheck, IconTrash, IconLocFreezer, ICON_MAP } from '../components/icons';
 import { fmtShort } from '../lib/dates';
 import { LOCATIONS } from '../lib/reference';
 
@@ -118,9 +118,21 @@ function StockRow({ it, onConsume, onThrow, onOpen, dense }: StockRowProps) {
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-            <StatusPill off={it.off} dense />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              {it.frozen && (
+                <span style={{ flexShrink:0, display:'inline-flex', alignItems:'center', gap:3, padding:'2px 7px 2px 5px', borderRadius:999, background:'color-mix(in srgb, hsl(205 70% 50%) 14%, var(--surface))', color:'hsl(205 70% 42%)', fontSize:10.5, fontWeight:800 }}>
+                  <IconLocFreezer size={11} />Fryst
+                </span>
+              )}
+              <StatusPill off={it.off} dense />
+            </div>
             {it.expiryDate && (
               <span className="tnum" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{fmtShort(it.expiryDate)}</span>
+            )}
+            {it.frozen && it.bestForOff != null && it.bestForDate && (
+              <span className="tnum" style={{ fontSize: 10, color: 'var(--ink-3)', opacity: 0.85 }}>
+                Best før {fmtShort(it.bestForDate)}
+              </span>
             )}
           </div>
         </div>
