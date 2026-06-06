@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type TabKey = 'home' | 'stock' | 'scan' | 'products' | 'settings';
+export type TabKey = 'home' | 'stock' | 'scan' | 'products' | 'settings' | 'shopping' | 'stats' | 'account' | 'locations';
 
 export interface ToastAction {
   label: string;

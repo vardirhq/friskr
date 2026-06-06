@@ -11,6 +11,10 @@ import { StockScreen } from './screens/StockScreen';
 import { ScanScreen } from './screens/ScanScreen';
 import { ProductsScreen } from './screens/ProductsScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { ShoppingScreen } from './screens/ShoppingScreen';
+import { StatsScreen } from './screens/StatsScreen';
+import { AccountScreen } from './screens/AccountScreen';
+import { LocationsScreen } from './screens/LocationsScreen';
 import { AddSheet } from './screens/AddSheet';
 import { HouseholdScreen } from './screens/HouseholdScreen';
 import { Onboarding } from './screens/Onboarding';
@@ -77,17 +81,30 @@ export default function App() {
     scan: ScanScreen,
     products: ProductsScreen,
     settings: SettingsScreen,
+    shopping: ShoppingScreen,
+    stats: StatsScreen,
+    account: AccountScreen,
+    locations: LocationsScreen,
   };
   const ActiveScreen = SCREENS[tab];
 
+  const MAIN_TABS = ['home', 'stock', 'scan', 'products', 'settings'];
+  const isSubScreen = !MAIN_TABS.includes(tab);
+
   return (
     <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--paper)', position: 'relative', overflow: 'hidden' }}>
-      {/* scrollable screen area */}
-      <div className="noscroll" style={{ flex: 1, overflowY: 'auto', paddingBottom: 68 }}>
+      {isSubScreen ? (
         <ActiveScreen />
-      </div>
+      ) : (
+        <>
+          {/* scrollable screen area */}
+          <div className="noscroll" style={{ flex: 1, overflowY: 'auto', paddingBottom: 68 }}>
+            <ActiveScreen />
+          </div>
 
-      <BottomNav tab={tab} onChange={setTab} />
+          <BottomNav tab={tab} onChange={setTab} />
+        </>
+      )}
 
       {/* overlays */}
       {(sheet?.type === 'add' || sheet?.type === 'edit') && (
