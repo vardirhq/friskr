@@ -131,7 +131,7 @@ function NotifPanel({ notifs, unreadCount, onMarkAll, onClose, onOpenItem }: { n
 export function HomeScreen() {
   const { items, counts, stats } = useStockStore();
   const { household } = useHouseholdStore();
-  const { setTab, openSheet, showToast } = useUiStore();
+  const { setTab, openSheet } = useUiStore();
   const { user } = useAuthStore();
 
   const [notifOpen, setNotifOpen] = useState(false);
