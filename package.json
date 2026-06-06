@@ -17,11 +17,15 @@
     "deploy:clean": "adb shell pm clear com.example.myapp"
   },
   "dependencies": {
+    "@capacitor-mlkit/barcode-scanning": "^8.1.0",
     "@capacitor/android": "^8.4.0",
     "@capacitor/app": "^8.1.0",
+    "@capacitor/camera": "^8.2.0",
     "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
+    "@capacitor/local-notifications": "^8.2.0",
     "@capacitor/push-notifications": "^8.1.1",
+    "tesseract.js": "^7.0.0",
     "deploid-plugin-deploy-android": "^0.1.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

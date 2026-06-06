@@ -41,9 +41,11 @@ interface AddSheetProps {
   open: boolean;
   onClose: () => void;
   editItem?: StockItem | null;
+  initialProduct?: Product;
+  initialOffDays?: number;
 }
 
-export function AddSheet({ open, onClose, editItem }: AddSheetProps) {
+export function AddSheet({ open, onClose, editItem, initialProduct, initialOffDays }: AddSheetProps) {
   const { household } = useHouseholdStore();
   const stockStore = useStockStore();
   const { showToast } = useUiStore();
@@ -80,12 +82,17 @@ export function AddSheet({ open, onClose, editItem }: AddSheetProps) {
       setPrice(editItem.price != null ? String(editItem.price) : '');
       setRemind(-1);
       setThawDays(THAW_DAYS);
+    } else if (initialProduct) {
+      setSel(initialProduct);
+      setDays(initialOffDays ?? initialProduct.shelf ?? 7);
+      setQ(''); setQty(1); setLoc('kjoleskap');
+      setNote(''); setPrice(''); setRemind(-1); setThawDays(THAW_DAYS);
     } else {
       setSel(null); setQ(''); setQty(1); setLoc('kjoleskap');
       setDays(7); setNote(''); setPrice('');
       setRemind(-1); setThawDays(THAW_DAYS);
     }
-  }, [open, editItem]);
+  }, [open, editItem, initialProduct, initialOffDays]);
 
   const wasFrozen = editItem?.frozen ?? false;
 

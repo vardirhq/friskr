@@ -97,6 +97,8 @@ export default function App() {
   const editItem = sheet?.type === 'edit'
     ? stockStore.items.find((i) => i.id === sheet.itemId) ?? null
     : null;
+  const scanProduct = sheet?.type === 'add' ? sheet.product : undefined;
+  const scanOffDays = sheet?.type === 'add' ? sheet.offDays : undefined;
 
   const SCREENS = {
     home: HomeScreen,
@@ -131,7 +133,7 @@ export default function App() {
 
       {/* overlays */}
       {(sheet?.type === 'add' || sheet?.type === 'edit') && (
-        <AddSheet open onClose={closeSheet} editItem={editItem} />
+        <AddSheet open onClose={closeSheet} editItem={editItem} initialProduct={scanProduct} initialOffDays={scanOffDays} />
       )}
       {sheet?.type === 'household' && (
         <HouseholdScreen onClose={closeSheet} />

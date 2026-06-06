@@ -14,7 +14,7 @@ export interface Toast {
 }
 
 export type SheetTarget =
-  | { type: 'add' }
+  | { type: 'add'; product?: import('../lib/friskr').Product; offDays?: number }
   | { type: 'edit'; itemId: string }
   | { type: 'household' }
   | { type: 'onboarding' };
