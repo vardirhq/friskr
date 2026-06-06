@@ -10,14 +10,18 @@ import { StatusPill } from '../components/StatusPill';
 import { Press } from '../components/Press';
 import { Btn } from '../components/Btn';
 import { ICON_MAP } from '../components/icons';
-import { IconSearch, IconX, IconCal, IconPlus, IconMinus, IconCheck, IconTag } from '../components/icons';
+import { IconSearch, IconX, IconCal, IconPlus, IconMinus, IconCheck, IconTag, IconLocFreezer, IconBellOff, IconClock } from '../components/icons';
 import { fmtNO } from '../lib/dates';
-import { LOCATIONS, CATEGORY_PRICE } from '../lib/reference';
+import { LOCATIONS, CATEGORY_PRICE, freezerDaysFor, THAW_DAYS } from '../lib/reference';
 
 const FIELD_LABEL: React.CSSProperties = {
   display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--ink-3)',
   textTransform: 'uppercase', letterSpacing: 0.4, margin: '0 0 9px',
 };
+
+function isFreezerLoc(loc: string): boolean {
+  return LOCATIONS[loc]?.freezer ?? false;
+}
 
 function Stepper({ value, onChange, min = 1 }: { value: number; onChange: (n: number) => void; min?: number }) {
   return (
@@ -53,6 +57,8 @@ export function AddSheet({ open, onClose, editItem }: AddSheetProps) {
   const [note, setNote] = useState('');
   const [price, setPrice] = useState('');
   const [loading, setLoading] = useState(false);
+  const [remind, setRemind] = useState(-1);
+  const [thawDays, setThawDays] = useState(THAW_DAYS);
 
   useEffect(() => {
     if (!open || !household) return;
@@ -65,14 +71,23 @@ export function AddSheet({ open, onClose, editItem }: AddSheetProps) {
       setSel(editItem.product);
       setQty(editItem.qty);
       setLoc(editItem.loc);
-      setDays(editItem.off ?? editItem.product.shelf ?? 7);
+      setDays(
+        editItem.frozen && editItem.bestForOff != null
+          ? editItem.bestForOff
+          : (editItem.off ?? editItem.product.shelf ?? 7)
+      );
       setNote(editItem.note ?? '');
       setPrice(editItem.price != null ? String(editItem.price) : '');
+      setRemind(-1);
+      setThawDays(THAW_DAYS);
     } else {
       setSel(null); setQ(''); setQty(1); setLoc('kjoleskap');
       setDays(7); setNote(''); setPrice('');
+      setRemind(-1); setThawDays(THAW_DAYS);
     }
   }, [open, editItem]);
+
+  const wasFrozen = editItem?.frozen ?? false;
 
   const filtered = products.filter((p) => q === '' || (p.name + ' ' + p.brand).toLowerCase().includes(q.toLowerCase()));
 
@@ -85,15 +100,34 @@ export function AddSheet({ open, onClose, editItem }: AddSheetProps) {
   targetDate.setDate(targetDate.getDate() + days);
   const locEntries = Object.entries(LOCATIONS);
 
+  // Freezer / thaw logic
+  const isFrozen = isFreezerLoc(loc);
+  const thawing = wasFrozen && !isFrozen;
+  const cat = sel?.cat ?? 'annet';
+  const horizonOff = isFrozen
+    ? (wasFrozen && editItem ? (editItem.off ?? freezerDaysFor(cat)) : freezerDaysFor(cat))
+    : null;
+
+  const resolved = isFrozen
+    ? { off: horizonOff ?? freezerDaysFor(cat), frozen: true, bestForOff: days, thawed: false }
+    : thawing
+      ? { off: thawDays, frozen: false, bestForOff: null, thawed: true }
+      : { off: days, frozen: false, bestForOff: null, thawed: false };
+
+  const dateLabel = isFrozen ? 'Best før (på pakken)' : thawing ? 'Tint — spis innen' : 'Utløpsdato';
+
   const handleSave = async () => {
     if (!sel || !household) return;
     setLoading(true);
     try {
       await stockStore.save(household.id, {
-        product: sel, qty, loc, off: days,
+        product: sel, qty, loc, off: resolved.off,
         note: note || null,
         price: price === '' ? null : Number(price.replace(',', '.')),
         editId: editItem?.id ?? null,
+        frozen: resolved.frozen,
+        bestForOff: resolved.bestForOff,
+        thawed: resolved.thawed,
       });
       showToast(editItem ? 'Lagret' : `${sel.name} lagt til`, 'check');
       onClose();
@@ -140,22 +174,70 @@ export function AddSheet({ open, onClose, editItem }: AddSheetProps) {
 
       {sel && (
         <>
-          <label style={FIELD_LABEL}>Utløpsdato</label>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 'var(--r-sm)', padding: '14px 16px', marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-              <IconCal size={20} style={{ color: 'var(--primary)' }} />
-              <span className="tnum" style={{ fontSize: 16, fontWeight: 700 }}>{fmtNO(targetDate)}</span>
-            </div>
-            <StatusPill off={days} dense />
-          </div>
-          <div className="noscroll" style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 18 }}>
-            {quick.map((qk) => {
-              const on = days === qk.d;
-              return (
-                <Press key={qk.l} onClick={() => setDays(qk.d)} style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 999, fontSize: 13, fontWeight: 700, background: on ? 'var(--primary)' : 'var(--surface-2)', color: on ? 'var(--on-primary)' : 'var(--ink-2)', border: '1px solid ' + (on ? 'var(--primary)' : 'var(--line)'), whiteSpace: 'nowrap' }}>{qk.l}</Press>
-              );
-            })}
-          </div>
+          <label style={FIELD_LABEL}>{dateLabel}</label>
+
+          {thawing ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 'var(--r-sm)', padding: '14px 16px', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                  <IconCal size={20} style={{ color: 'var(--primary)' }} />
+                  {(() => { const d = new Date(); d.setDate(d.getDate() + thawDays); return <span className="tnum" style={{ fontSize: 16, fontWeight: 700 }}>{fmtNO(d)}</span>; })()}
+                </div>
+                <StatusPill off={thawDays} dense />
+              </div>
+              <div className="noscroll" style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 14 }}>
+                {[{ l: '2 dager', d: 2 }, { l: '3 dager', d: 3 }, { l: '5 dager', d: 5 }, { l: '1 uke', d: 7 }].map((qk) => {
+                  const on = thawDays === qk.d;
+                  return (
+                    <Press key={qk.l} onClick={() => setThawDays(qk.d)} style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 999, fontSize: 13, fontWeight: 700, background: on ? 'var(--primary)' : 'var(--surface-2)', color: on ? 'var(--on-primary)' : 'var(--ink-2)', border: '1px solid ' + (on ? 'var(--primary)' : 'var(--line)'), whiteSpace: 'nowrap' }}>{qk.l}</Press>
+                  );
+                })}
+              </div>
+              <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', background: 'var(--soon-tint)', border: '1px solid color-mix(in srgb, var(--soon) 30%, var(--line))', borderRadius: 'var(--r-sm)', padding: '12px 14px', marginBottom: 18 }}>
+                <span style={{ color: 'var(--soon)', display: 'flex', flexShrink: 0, marginTop: 1 }}><IconClock size={18} /></span>
+                <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.45 }}>
+                  Tatt ut av fryseren? Tint mat bør spises raskt — vi minner deg innen <strong>{thawDays} dager</strong> i stedet for den opprinnelige datoen.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 'var(--r-sm)', padding: '14px 16px', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                  <IconCal size={20} style={{ color: 'var(--primary)' }} />
+                  <span className="tnum" style={{ fontSize: 16, fontWeight: 700 }}>{fmtNO(targetDate)}</span>
+                </div>
+                {isFrozen
+                  ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink-3)', fontSize: 11.5, fontWeight: 700 }}>
+                      <IconLocFreezer size={13} /> Fryst
+                    </span>
+                  : <StatusPill off={days} dense />}
+              </div>
+              {!isFrozen && (
+                <div className="noscroll" style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 18 }}>
+                  {quick.map((qk) => {
+                    const on = days === qk.d;
+                    return (
+                      <Press key={qk.l} onClick={() => setDays(qk.d)} style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 999, fontSize: 13, fontWeight: 700, background: on ? 'var(--primary)' : 'var(--surface-2)', color: on ? 'var(--on-primary)' : 'var(--ink-2)', border: '1px solid ' + (on ? 'var(--primary)' : 'var(--line)'), whiteSpace: 'nowrap' }}>{qk.l}</Press>
+                    );
+                  })}
+                </div>
+              )}
+              {isFrozen && (
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--primary-tint)', border: '1px solid color-mix(in srgb, var(--primary) 26%, var(--line))', borderRadius: 'var(--r-sm)', padding: '13px 14px', marginBottom: 18 }}>
+                  <span style={{ width: 38, height: 38, borderRadius: 12, flexShrink: 0, background: 'var(--surface)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconLocFreezer size={20} />
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: 'var(--on-primary-tint)' }}>Fryseren forlenger holdbarheten</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'var(--ink-2)' }}>
+                      Vi minner deg om {horizonOff != null ? `${horizonOff} dager` : 'kategorihorisonten'}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
             <label style={{ ...FIELD_LABEL, margin: 0 }}>Antall</label>
@@ -168,13 +250,40 @@ export function AddSheet({ open, onClose, editItem }: AddSheetProps) {
               const on = loc === lk;
               const LocIcon = ICON_MAP[meta.icon];
               return (
-                <Press key={lk} onClick={() => setLoc(lk)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '14px 4px', borderRadius: 'var(--r-sm)', background: on ? 'var(--primary-tint)' : 'var(--surface-2)', border: '1.5px solid ' + (on ? 'var(--primary)' : 'var(--line)'), color: on ? 'var(--on-primary-tint)' : 'var(--ink-2)' }}>
+                <Press key={lk} onClick={() => setLoc(lk)} style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, padding: '14px 4px', borderRadius: 'var(--r-sm)', background: on ? 'var(--primary-tint)' : 'var(--surface-2)', border: '1.5px solid ' + (on ? 'var(--primary)' : 'var(--line)'), color: on ? 'var(--on-primary-tint)' : 'var(--ink-2)' }}>
+                  {LOCATIONS[lk].freezer && (
+                    <span style={{ position: 'absolute', top: 6, right: 6, color: 'hsl(205 60% 48%)', display: 'flex' }}>
+                      <IconLocFreezer size={13} />
+                    </span>
+                  )}
                   {LocIcon && <LocIcon size={22} />}
                   <span style={{ fontSize: 12, fontWeight: 700 }}>{meta.label}</span>
                 </Press>
               );
             })}
           </div>
+
+          <label style={FIELD_LABEL}>Påminnelse</label>
+          <div className="noscroll" style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 6 }}>
+            {[
+              { l: 'Av', d: -1 },
+              { l: 'Samme dag', d: 0 },
+              { l: '1 dag før', d: 1 },
+              { l: '2 dager', d: 2 },
+              { l: '3 dager', d: 3 },
+              { l: '1 uke', d: 7 },
+            ].map((rk) => {
+              const on = remind === rk.d;
+              return (
+                <Press key={rk.l} onClick={() => setRemind(rk.d)} style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '8px 13px', borderRadius: 999, fontSize: 13, fontWeight: 700, background: on ? 'var(--primary)' : 'var(--surface-2)', color: on ? 'var(--on-primary)' : 'var(--ink-2)', border: '1px solid ' + (on ? 'var(--primary)' : 'var(--line)'), whiteSpace: 'nowrap' }}>
+                  {rk.d === -1 && <IconBellOff size={14} />}{rk.l}
+                </Press>
+              );
+            })}
+          </div>
+          <p style={{ margin: '0 2px 18px', fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.4 }}>
+            {remind === -1 ? 'Ingen påminnelse for denne varen.' : remind === 0 ? 'Varsel på selve utløpsdagen.' : `Varsel ${remind} dag${remind > 1 ? 'er' : ''} før utløp.`}
+          </p>
 
           <label style={FIELD_LABEL}>Notat (valgfritt)</label>
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="f.eks. åpnet, halv pakke…" style={{ width: '100%', boxSizing: 'border-box', border: '1px solid var(--line)', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', padding: '13px 16px', fontFamily: 'var(--font)', fontSize: 14.5, color: 'var(--ink)', outline: 'none', marginBottom: 18 }} />
@@ -188,7 +297,7 @@ export function AddSheet({ open, onClose, editItem }: AddSheetProps) {
           <p style={{ margin: '0 2px 22px', fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.4 }}>Legg til prisen for å se hvor mye du faktisk sparer når du bruker opp varen.</p>
 
           <Btn full icon={IconCheck} onClick={handleSave} disabled={loading}>
-            {loading ? 'Lagrer…' : (editItem ? 'Lagre endringer' : 'Lagre på lager')}
+            {loading ? 'Lagrer…' : isFrozen ? 'Legg i fryseren' : (editItem ? 'Lagre endringer' : 'Lagre på lager')}
           </Btn>
         </>
       )}
