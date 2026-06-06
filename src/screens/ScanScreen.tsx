@@ -31,6 +31,7 @@ export function ScanScreen() {
   const [error, setError] = useState<string | null>(null);
   const [dateError, setDateError] = useState<string | null>(null);
   const [transparent, setTransparent] = useState(false);
+  const [flash, setFlash] = useState(false);
   const activeRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -207,6 +208,17 @@ export function ScanScreen() {
         {/* top bar */}
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px' }}>
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#fff' }}>{isDateStep ? 'Skann utløpsdato' : 'Skann strekkode'}</h2>
+          <button onClick={() => setFlash(f => !f)} style={{ background: flash ? 'rgba(255,220,50,.18)' : 'rgba(255,255,255,.12)', border: 'none', borderRadius: 999, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+            {flash ? (
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M11 2L4 11h6l-1 7 7-9h-6l1-7z" fill="#FFD932" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M11 2L4 11h6l-1 7 7-9h-6l1-7z" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="1.6" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
         </div>
 
         {/* step chips */}
