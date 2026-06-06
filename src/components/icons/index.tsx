@@ -38,6 +38,10 @@ export const IconTrash = (p: IconProps) => <SvgIcon {...p}><path d="M5 7h14" /><
 export const IconPencil = (p: IconProps) => <SvgIcon {...p}><path d="M14.5 5.5 18.5 9.5 8 20H4v-4z" /><path d="m13 7 4 4" /></SvgIcon>;
 export const IconFlash = (p: IconProps) => <SvgIcon {...p}><path d="M13 3 5 13h6l-1 8 8-10h-6z" /></SvgIcon>;
 export const IconFlashOff = (p: IconProps) => <SvgIcon {...p}><path d="M13 3 8 9.2M11 13H5l3-3.8M10 21l1-8" /><path d="M4 4l16 16" /></SvgIcon>;
+export const IconBellOff = (p: IconProps) => <SvgIcon {...p}><path d="M6 9a6 6 0 0 1 12 0c0 5 1.5 6.5 1.5 6.5h-15S6 14 6 9Z" /><path d="M10 19a2 2 0 0 0 4 0" /><path d="M4 4l16 16" /></SvgIcon>;
+export const IconCloudOff = (p: IconProps) => <SvgIcon {...p}><path d="M17.5 17.5H7a5 5 0 0 1-.5-9.9A7 7 0 0 1 19 12" /><path d="M4 4l16 16" /></SvgIcon>;
+export const IconApple = (p: IconProps) => <SvgIcon {...p}><path d="M12 6c-1.5-2-4-2-5 0-1.5 2.5-.5 7 2 10 .5.8 1 1 1.5 1 .4 0 .8-.2 1.5-1 2.5-3 3.5-7.5 2-10Z" /><path d="M12 6c.5-2 2-3 3-3" /></SvgIcon>;
+export const IconGoogle = (p: IconProps) => <SvgIcon {...p}><path d="M20 12.5h-8v2.5h5a5 5 0 1 1-1.4-5.3l1.8-1.8A8 8 0 1 0 20 12.5Z" /></SvgIcon>;
 export const IconImage = (p: IconProps) => <SvgIcon {...p}><rect x="4" y="5" width="16" height="14" rx="3" /><circle cx="9" cy="10" r="1.6" /><path d="m5 17 4.5-4 3 2.5L16 11l3 4" /></SvgIcon>;
 export const IconUsers = (p: IconProps) => <SvgIcon {...p}><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.5-3 2.8-4.5 5.5-4.5S14 16 14.5 19" /><path d="M16 5.5a3 3 0 0 1 0 5.5" /><path d="M17 14.6c2 .6 3.3 2 3.5 4.4" /></SvgIcon>;
 export const IconGlobe = (p: IconProps) => <SvgIcon {...p}><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17" /><path d="M12 3.5c2.5 2.4 2.5 14.6 0 17M12 3.5c-2.5 2.4-2.5 14.6 0 17" /></SvgIcon>;
@@ -77,9 +81,10 @@ export const IconLocPantry = (p: IconProps) => <SvgIcon {...p}><rect x="4.5" y="
 
 // Logo — filled, no stroke
 export const IconLogo = ({ size = 22, ...rest }: IconProps) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none"
+  <svg width={size} height={size} viewBox="0 0 100 100" fill="currentColor" stroke="none"
     style={{ display: 'block', flexShrink: 0 }} {...rest}>
-    <path d="M6 21c-.5-7 3.2-12.5 12.5-13.5.6-.06 1 .5.8 1.05C16.8 15 12.4 18.2 7.6 18.2c1.1-3.2 3.3-5.6 6.4-7-3.5 1-6 3.4-7.4 7.2" />
+    <path d="M42 80 C28 76 17 63 15 47 C32 53 43 65 42 80 Z" fillOpacity={0.55} />
+    <path d="M42 80 C50 56 64 33 87 13 C83 46 66 70 42 80 Z" />
   </svg>
 );
 
@@ -98,4 +103,6 @@ export const ICON_MAP: Record<string, React.ComponentType<IconProps>> = {
   locFridge: IconLocFridge,
   locFreezer: IconLocFreezer,
   locPantry: IconLocPantry,
+  locBox: IconBox,
+  locHome: IconHome,
 };

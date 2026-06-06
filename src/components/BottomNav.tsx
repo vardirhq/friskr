@@ -1,5 +1,5 @@
 import type { TabKey } from '../stores/ui';
-import { IconHome, IconBox, IconScan, IconFilter, IconSliders } from './icons';
+import { IconHome, IconBox, IconScan, IconLeaf, IconSliders } from './icons';
 
 interface NavTab {
   key: TabKey;
@@ -11,8 +11,8 @@ const TABS: NavTab[] = [
   { key: 'home', label: 'Hjem', Icon: IconHome },
   { key: 'stock', label: 'Lager', Icon: IconBox },
   { key: 'scan', label: 'Skann', Icon: IconScan },
-  { key: 'products', label: 'Produkter', Icon: IconFilter },
-  { key: 'settings', label: 'Innst.', Icon: IconSliders },
+  { key: 'products', label: 'Produkter', Icon: IconLeaf },
+  { key: 'settings', label: 'Innstillinger', Icon: IconSliders },
 ];
 
 interface BottomNavProps {
