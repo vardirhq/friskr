@@ -61,7 +61,7 @@ export default function App() {
       if (t !== 'home') { setTab('home'); return; }
       CapApp.exitApp();
     });
-    return () => { listener.then((h) => h.remove()); };
+    return () => { listener.then((h: { remove: () => void }) => h.remove()); };
   }, []);
 
   // load stock + subscribe realtime once household is known
