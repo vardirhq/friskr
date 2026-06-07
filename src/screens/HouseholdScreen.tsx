@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
+import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning';
 import { useHouseholdStore } from '../stores/household';
 import { useUiStore } from '../stores/ui';
 import { Press } from '../components/Press';
@@ -45,10 +46,13 @@ function RealQR({ code, size = 132 }: { code: string; size?: number }) {
 }
 
 export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
-  const { household } = useHouseholdStore();
+  const householdStore = useHouseholdStore();
+  const { household } = householdStore;
   const { showToast } = useUiStore();
   const [mode, setMode] = useState<'manage' | 'join'>('manage');
   const [joinCode, setJoinCode] = useState('');
+  const [joining, setJoining] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [copied, setCopied] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [pendingInvites, setPendingInvites] = useState<Array<{ id: string; email: string; sentAt: number }>>([]);
@@ -62,6 +66,35 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
     setPendingInvites(p => [...p, { id: Math.random().toString(36).slice(2), email: inviteEmail, sentAt: Date.now() }]);
     showToast('Invitasjon sendt', 'check');
     setInviteEmail('');
+  };
+
+  const scanQR = async () => {
+    try {
+      const { camera } = await BarcodeScanner.requestPermissions();
+      if (camera !== 'granted' && camera !== 'limited') {
+        showToast('Kameratilgang nektet', 'x');
+        return;
+      }
+      setScanning(true);
+      document.documentElement.classList.add('barcode-scanning');
+
+      await BarcodeScanner.addListener('barcodeScanned', async ({ barcode }) => {
+        const val = barcode.rawValue ?? '';
+        if (val.startsWith('FRISK-') || val.length > 0) {
+          await BarcodeScanner.stopScan();
+          await BarcodeScanner.removeAllListeners();
+          document.documentElement.classList.remove('barcode-scanning');
+          setScanning(false);
+          setJoinCode(val.toUpperCase());
+        }
+      });
+
+      await BarcodeScanner.startScan({ formats: [BarcodeFormat.QrCode] });
+    } catch {
+      document.documentElement.classList.remove('barcode-scanning');
+      setScanning(false);
+      showToast('Kunne ikke åpne kamera', 'x');
+    }
   };
 
   const copy = () => {
@@ -186,6 +219,21 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
         ) : (
           /* JOIN flow */
           <div style={{ paddingTop: 8 }}>
+            {scanning && (
+              <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 'calc(40px + env(safe-area-inset-bottom))' }}>
+                <Press
+                  onClick={async () => {
+                    await BarcodeScanner.stopScan();
+                    await BarcodeScanner.removeAllListeners();
+                    document.documentElement.classList.remove('barcode-scanning');
+                    setScanning(false);
+                  }}
+                  style={{ padding: '14px 32px', borderRadius: 999, background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 15, fontWeight: 700 }}
+                >
+                  Avbryt
+                </Press>
+              </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 24 }}>
               <div style={{ width: 64, height: 64, borderRadius: 20, background: 'var(--primary-tint)', color: 'var(--on-primary-tint)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
                 <IconUsers size={30} />
@@ -198,12 +246,26 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
               placeholder="FRISK-XXXX"
               autoFocus
+              disabled={joining}
               className="tnum"
-              style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', letterSpacing: 3, fontSize: 22, fontWeight: 800, border: '1.5px solid var(--line)', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', padding: '16px', fontFamily: 'var(--font)', color: 'var(--ink)', outline: 'none', marginBottom: 12 }}
+              style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', letterSpacing: 3, fontSize: 22, fontWeight: 800, border: '1.5px solid var(--line)', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', padding: '16px', fontFamily: 'var(--font)', color: 'var(--ink)', outline: 'none', marginBottom: 12, opacity: joining ? 0.5 : 1 }}
             />
-            <Btn full icon={IconQr} variant="ghost" onClick={() => showToast('Åpner kamera…', 'check')}>Skann QR i stedet</Btn>
+            <Btn full icon={IconQr} variant="ghost" onClick={scanQR} disabled={joining}>Skann QR i stedet</Btn>
             <div style={{ height: 10 }} />
-            <Btn full icon={IconArrowR} onClick={() => { if (joinCode.trim()) { showToast('Sender forespørsel…', 'check'); setMode('manage'); } }}>Bli med</Btn>
+            <Btn full icon={IconArrowR} disabled={joining} onClick={async () => {
+              const code = joinCode.trim();
+              if (!code) return;
+              setJoining(true);
+              try {
+                await householdStore.join(code);
+                onClose();
+              } catch (err: unknown) {
+                const msg = (err as { message?: string }).message ?? 'Ukjent feil';
+                showToast(msg.includes('NOT_FOUND') || msg.includes('Invalid') ? 'Ugyldig kode' : 'Noe gikk galt', 'x');
+              } finally {
+                setJoining(false);
+              }
+            }}>{joining ? 'Laster…' : 'Bli med'}</Btn>
           </div>
         )}
       </div>
