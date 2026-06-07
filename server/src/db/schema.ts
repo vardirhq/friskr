@@ -42,6 +42,16 @@ export const householdMembers = pgTable('household_members', {
   joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const householdInvites = pgTable('household_invites', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  sentByUserId: uuid('sent_by_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+});
+
 export const categories = pgTable('categories', {
   id: text('id').primaryKey(),
   label: text('label').notNull(),
