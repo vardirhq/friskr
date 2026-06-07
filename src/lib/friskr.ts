@@ -28,6 +28,53 @@ export interface Invite {
   daysAgo: number;
 }
 
+export interface ShoppingItem {
+  id: string;
+  productId: string | null;
+  name: string;
+  cat: string;
+  qty: number;
+  done: boolean;
+  auto: boolean;
+  addedBy: string | null;
+}
+
+export interface ShoppingSuggestion {
+  productId: string;
+  name: string;
+  cat: string;
+}
+
+export async function listShoppingItems(): Promise<ShoppingItem[]> {
+  return api.get<ShoppingItem[]>('/api/shopping');
+}
+
+export async function addShoppingItem(payload: {
+  name: string;
+  cat?: string;
+  qty?: number;
+  productId?: string;
+  auto?: boolean;
+}): Promise<ShoppingItem> {
+  return api.post<ShoppingItem>('/api/shopping', payload);
+}
+
+export async function updateShoppingItem(id: string, patch: { done?: boolean; qty?: number }): Promise<void> {
+  await api.patch(`/api/shopping/${id}`, patch);
+}
+
+export async function deleteShoppingItem(id: string): Promise<void> {
+  await api.delete(`/api/shopping/${id}`);
+}
+
+export async function clearDoneShoppingItems(): Promise<void> {
+  await api.delete('/api/shopping/done');
+}
+
+export async function listShoppingSuggestions(): Promise<ShoppingSuggestion[]> {
+  return api.get<ShoppingSuggestion[]>('/api/shopping/suggestions');
+}
+
 function mapStockRow(r: Record<string, unknown>): StockItem {
   const expiryDate = parseDate(r.expiryDate as string | null);
   const bestForDate = parseDate(r.bestForDate as string | null);

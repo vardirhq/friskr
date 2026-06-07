@@ -3,6 +3,7 @@ import { App as CapApp } from '@capacitor/app';
 import { useAuthStore } from './stores/auth';
 import { useHouseholdStore } from './stores/household';
 import { useStockStore } from './stores/stock';
+import { useShoppingStore } from './stores/shopping';
 import { useSettingsStore } from './stores/settings';
 import { useUiStore } from './stores/ui';
 import { BottomNav } from './components/BottomNav';
@@ -26,6 +27,7 @@ export default function App() {
   const { user: session, loading: authLoading, init } = useAuthStore();
   const { household, load: loadHousehold, loading: householdLoading } = useHouseholdStore();
   const stockStore = useStockStore();
+  const shoppingStore = useShoppingStore();
   const { darkMode, accent } = useSettingsStore();
   const { tab, sheet, toast, setTab, closeSheet, dismissToast } = useUiStore();
 
@@ -69,7 +71,13 @@ export default function App() {
     if (!household) return;
     stockStore.load(household.id);
     stockStore.subscribeRealtime(household.id);
-    return () => stockStore.unsubscribeRealtime();
+    shoppingStore.load();
+    shoppingStore.loadSuggestions();
+    shoppingStore.subscribeRealtime(household.id);
+    return () => {
+      stockStore.unsubscribeRealtime();
+      shoppingStore.unsubscribeRealtime();
+    };
   }, [household?.id]);
 
   // --- routing ---
