@@ -72,7 +72,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
 
   subscribeRealtime(householdId) {
     if (unsubFn) unsubFn();
-    unsubFn = subscribeHousehold(householdId, () => get().load());
+    unsubFn = subscribeHousehold(householdId, () => { get().load(); get().loadSuggestions(); });
   },
 
   unsubscribeRealtime() {
