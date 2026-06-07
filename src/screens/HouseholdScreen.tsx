@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import React from 'react';
 import QRCode from 'qrcode';
 import { useHouseholdStore } from '../stores/household';
 import { useUiStore } from '../stores/ui';
