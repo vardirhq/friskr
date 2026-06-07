@@ -11,7 +11,7 @@ function startOfToday(): Date {
 
 export function parseDate(iso: string | null): Date | null {
   if (!iso) return null;
-  const [y, m, d] = iso.split('-').map(Number);
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
   return new Date(y, m - 1, d);
 }
 
