@@ -40,11 +40,13 @@ describe('POST /api/products', () => {
     const res = await app.inject({
       method: 'POST', url: '/api/products',
       headers: { authorization: `Bearer ${jwt}` },
-      payload: { name: 'Yoghurt', brand: 'Yoplait', categoryId: 'meieri', defaultShelfDays: 7 },
+      payload: { name: 'Yoghurt', brand: 'Yoplait', cat: 'meieri', shelf: 7 },
     });
     expect(res.statusCode).toBe(201);
     const body = res.json();
     expect(body.name).toBe('Yoghurt');
+    expect(body.cat).toBe('meieri');
+    expect(body.shelf).toBe(7);
     expect(body.householdId).toBe(householdId);
   });
 });

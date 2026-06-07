@@ -105,4 +105,6 @@ export const ICON_MAP: Record<string, React.ComponentType<IconProps>> = {
   locPantry: IconLocPantry,
   locBox: IconBox,
   locHome: IconHome,
+  box: IconBox,
+  home: IconHome,
 };

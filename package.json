@@ -17,6 +17,7 @@
     "deploy:clean": "adb shell pm clear dev.madsens.friskr"
   },
   "dependencies": {
+    "@capacitor-community/camera-preview": "^8.0.1",
     "@capacitor-mlkit/barcode-scanning": "^8.1.0",
     "@capacitor/android": "^8.4.0",
     "@capacitor/app": "^8.1.0",

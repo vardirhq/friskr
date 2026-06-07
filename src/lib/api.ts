@@ -26,9 +26,10 @@ async function tryRefresh(): Promise<boolean> {
 }
 
 async function request(method: string, path: string, body?: unknown, retry = true): Promise<Response> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {};
   const jwt = getJwt();
   if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
+  if (body != null) headers['Content-Type'] = 'application/json';
 
   const res = await fetch(`${BASE}${path}`, {
     method,

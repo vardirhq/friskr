@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { ShoppingItem } from '../lib/friskr';
-import type { CategoryId, LocationId } from '../lib/database.types';
+import type { Product, ShoppingItem } from '../lib/friskr';
+import type { CategoryId } from '../lib/database.types';
 import { useStockStore } from '../stores/stock';
 import { useShoppingStore } from '../stores/shopping';
 import { useHouseholdStore } from '../stores/household';
@@ -10,19 +10,14 @@ import { CatTile } from '../components/CatTile';
 import { Press } from '../components/Press';
 import { Btn } from '../components/Btn';
 import { IconCheck } from '../components/icons';
-import { LOCATIONS } from '../lib/reference';
+import { useLocationStore } from '../stores/locations';
+import { ProductEditorSheet } from '../components/ProductEditorSheet';
 
 const EXPIRY_CHIPS = [
   { label: 'Ingen dato', days: 30 },
   { label: '+3 d', days: 3 },
   { label: '+1 uke', days: 7 },
   { label: '+2 uker', days: 14 },
-];
-
-const LOC_PILLS = [
-  { key: 'kjoleskap', label: 'Kjøl.' },
-  { key: 'fryser', label: 'Frys.' },
-  { key: 'spiskammer', label: 'Spisk.' },
 ];
 
 type ItemState = { loc: string; daysIdx: number };
@@ -38,15 +33,18 @@ export function BulkAddSheet({ open, onClose, doneItems }: BulkAddSheetProps) {
   const stockStore = useStockStore();
   const shoppingStore = useShoppingStore();
   const { showToast } = useUiStore();
+  const { locations } = useLocationStore();
 
   const [itemState, setItemState] = useState<Record<string, ItemState>>({});
   const [loading, setLoading] = useState(false);
+  const [createdProducts, setCreatedProducts] = useState<Record<string, Product>>({});
+  const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
 
-  const getState = (id: string): ItemState => itemState[id] ?? { loc: 'kjoleskap', daysIdx: 2 };
+  const getState = (id: string): ItemState => itemState[id] ?? { loc: locations[0]?.id ?? 'kjoleskap', daysIdx: 2 };
   const update = (id: string, patch: Partial<ItemState>) =>
     setItemState(prev => ({ ...prev, [id]: { ...getState(id), ...patch } }));
 
-  const itemsWithProduct = doneItems.filter((it) => !!it.productId);
+  const itemsWithProduct = doneItems.filter((it) => !!it.productId || !!createdProducts[it.id]);
 
   const handleSave = async () => {
     if (!household) return;
@@ -56,7 +54,7 @@ export function BulkAddSheet({ open, onClose, doneItems }: BulkAddSheetProps) {
         itemsWithProduct.map((item) => {
           const state = getState(item.id);
           const chip = EXPIRY_CHIPS[state.daysIdx];
-          const product = {
+          const product = createdProducts[item.id] ?? {
             id: item.productId!,
             name: item.name,
             brand: '',
@@ -66,12 +64,12 @@ export function BulkAddSheet({ open, onClose, doneItems }: BulkAddSheetProps) {
           return stockStore.save(household.id, {
             product,
             qty: item.qty,
-            loc: state.loc as LocationId,
+            loc: state.loc,
             off: chip.days,
             note: null,
             price: null,
             editId: null,
-            frozen: LOCATIONS[state.loc]?.freezer ?? false,
+            frozen: locations.find((location) => location.id === state.loc)?.freezer ?? false,
             bestForOff: null,
           });
         })
@@ -87,10 +85,11 @@ export function BulkAddSheet({ open, onClose, doneItems }: BulkAddSheetProps) {
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Legg i lager" maxH={88}>
+    <>
+    <Sheet open={open && !editingItem} onClose={onClose} title="Legg i lager" maxH={88}>
       <div style={{ marginBottom: 20 }}>
         {doneItems.map((item) => {
-          const hasProduct = !!item.productId;
+          const hasProduct = !!item.productId || !!createdProducts[item.id];
           const state = getState(item.id);
 
           return (
@@ -121,12 +120,12 @@ export function BulkAddSheet({ open, onClose, doneItems }: BulkAddSheetProps) {
                 <>
                   {/* Row 2: location pills */}
                   <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                    {LOC_PILLS.map(({ key, label }) => {
-                      const on = state.loc === key;
+                    {locations.map((location) => {
+                      const on = state.loc === location.id;
                       return (
                         <Press
-                          key={key}
-                          onClick={() => update(item.id, { loc: key })}
+                          key={location.id}
+                          onClick={() => update(item.id, { loc: location.id })}
                           style={{
                             padding: '5px 10px',
                             borderRadius: 999,
@@ -137,7 +136,7 @@ export function BulkAddSheet({ open, onClose, doneItems }: BulkAddSheetProps) {
                             border: on ? 'none' : '1px solid var(--line)',
                           }}
                         >
-                          {label}
+                          {location.label}
                         </Press>
                       );
                     })}
@@ -169,13 +168,13 @@ export function BulkAddSheet({ open, onClose, doneItems }: BulkAddSheetProps) {
                   </div>
                 </>
               ) : (
-                <span style={{
+                <Press onClick={() => setEditingItem(item)} style={{
                   fontSize: 11,
                   fontWeight: 700,
-                  color: 'var(--ink-3)',
+                  color: 'var(--primary)',
                 }}>
-                  Legg til manuelt
-                </span>
+                  Opprett produkt
+                </Press>
               )}
             </div>
           );
@@ -186,5 +185,14 @@ export function BulkAddSheet({ open, onClose, doneItems }: BulkAddSheetProps) {
         {loading ? 'Lagrer…' : `Legg til lager (${itemsWithProduct.length})`}
       </Btn>
     </Sheet>
+    <ProductEditorSheet
+      open={!!editingItem}
+      onClose={() => setEditingItem(null)}
+      draft={editingItem ? { name: editingItem.name, cat: editingItem.cat as CategoryId } : undefined}
+      onSaved={(product) => {
+        if (editingItem) setCreatedProducts((current) => ({ ...current, [editingItem.id]: product }));
+      }}
+    />
+    </>
   );
 }

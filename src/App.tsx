@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { useAuthStore } from './stores/auth';
 import { useHouseholdStore } from './stores/household';
 import { useStockStore } from './stores/stock';
 import { useShoppingStore } from './stores/shopping';
 import { useSettingsStore } from './stores/settings';
 import { useUiStore } from './stores/ui';
+import { useLocationStore } from './stores/locations';
 import { BottomNav } from './components/BottomNav';
 import { Toast } from './components/Toast';
 import { HomeScreen } from './screens/HomeScreen';
@@ -22,14 +25,16 @@ import { HouseholdScreen } from './screens/HouseholdScreen';
 import { Onboarding } from './screens/Onboarding';
 import { SignInScreen } from './screens/SignInScreen';
 import { CreateOrJoinScreen } from './screens/CreateOrJoinScreen';
+import { syncExpiryNotifications } from './lib/notifications';
 
 export default function App() {
   const { user: session, loading: authLoading, init } = useAuthStore();
   const { household, load: loadHousehold, loading: householdLoading } = useHouseholdStore();
   const stockStore = useStockStore();
   const shoppingStore = useShoppingStore();
-  const { darkMode, accent } = useSettingsStore();
-  const { tab, sheet, toast, setTab, closeSheet, dismissToast } = useUiStore();
+  const locationStore = useLocationStore();
+  const { darkMode, accent, pushEnabled, notifyDaysAhead, debugMode } = useSettingsStore();
+  const { tab, sheet, toast, setTab, openSheet, closeSheet, dismissToast } = useUiStore();
 
   // bootstrap
   useEffect(() => { init(); }, []);
@@ -38,6 +43,10 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('theme-dark', darkMode);
   }, [darkMode]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('debug-mode', debugMode);
+  }, [debugMode]);
 
   // accent color
   useEffect(() => {
@@ -72,6 +81,7 @@ export default function App() {
     stockStore.load(household.id);
     stockStore.subscribeRealtime(household.id);
     shoppingStore.load();
+    locationStore.load(household.id);
     shoppingStore.loadSuggestions();
     shoppingStore.subscribeRealtime(household.id);
     return () => {
@@ -79,6 +89,33 @@ export default function App() {
       shoppingStore.unsubscribeRealtime();
     };
   }, [household?.id]);
+
+  useEffect(() => {
+    syncExpiryNotifications(stockStore.items, !!session && pushEnabled, notifyDaysAhead).catch(console.error);
+  }, [stockStore.items, session, pushEnabled, notifyDaysAhead]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const resume = CapApp.addListener('resume', () => {
+      const settings = useSettingsStore.getState();
+      syncExpiryNotifications(
+        useStockStore.getState().items,
+        !!useAuthStore.getState().user && settings.pushEnabled,
+        settings.notifyDaysAhead,
+      ).catch(console.error);
+    });
+    const notification = LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+      const itemId = action.notification.extra?.stockItemId as string | undefined;
+      setTab('stock');
+      if (itemId && useStockStore.getState().items.some((item) => item.id === itemId)) {
+        openSheet({ type: 'edit', itemId });
+      }
+    });
+    return () => {
+      resume.then((handle) => handle.remove());
+      notification.then((handle) => handle.remove());
+    };
+  }, []);
 
   // --- routing ---
   if (authLoading) {
@@ -107,6 +144,7 @@ export default function App() {
     : null;
   const scanProduct = sheet?.type === 'add' ? sheet.product : undefined;
   const scanOffDays = sheet?.type === 'add' ? sheet.offDays : undefined;
+  const scanProductDraft = sheet?.type === 'add' ? sheet.productDraft : undefined;
 
   const SCREENS = {
     home: HomeScreen,
@@ -140,7 +178,7 @@ export default function App() {
 
       {/* overlays */}
       {(sheet?.type === 'add' || sheet?.type === 'edit') && (
-        <AddSheet open onClose={closeSheet} editItem={editItem} initialProduct={scanProduct} initialOffDays={scanOffDays} />
+        <AddSheet open onClose={closeSheet} editItem={editItem} initialProduct={scanProduct} initialProductDraft={scanProductDraft} initialOffDays={scanOffDays} />
       )}
       {sheet?.type === 'household' && (
         <HouseholdScreen onClose={closeSheet} />

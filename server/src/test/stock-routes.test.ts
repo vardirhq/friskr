@@ -63,6 +63,7 @@ describe('POST /api/stock', () => {
       payload: {
         productId, locationId: 'kjoleskap',
         quantity: 2, expiryDate: tomorrow.toISOString().slice(0, 10),
+        reminderDaysBefore: 2,
       },
     });
     expect(res.statusCode).toBe(201);
@@ -70,7 +71,20 @@ describe('POST /api/stock', () => {
     expect(body.id).toBeDefined();
     expect(body.pid).toBe(productId);
     expect(body.qty).toBe(2);
+    expect(body.reminderDaysBefore).toBe(2);
     expect(body.status).toBe('in_stock');
+  });
+
+  it('rejects invalid reminder offsets', async () => {
+    const res = await app.inject({
+      method: 'POST', url: '/api/stock',
+      headers: { authorization: `Bearer ${jwt}` },
+      payload: {
+        productId, locationId: 'kjoleskap',
+        quantity: 1, reminderDaysBefore: 15,
+      },
+    });
+    expect(res.statusCode).toBe(400);
   });
 });
 

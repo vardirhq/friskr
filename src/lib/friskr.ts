@@ -1,18 +1,20 @@
 import { api } from './api';
 import { CATEGORIES, freezerDaysFor, THAW_DAYS } from './reference';
 import { parseDate, daysUntil, isoDateInDays } from './dates';
-import type { CategoryId, LocationId } from './database.types';
+import type { CategoryId } from './database.types';
 
 export interface Product {
   id: string; name: string; brand: string; cat: CategoryId;
   shelf: number | null; barcode?: string | null; householdId?: string | null;
+  archived?: boolean;
 }
 
 export interface StockItem {
-  id: string; pid: string; loc: LocationId; qty: number;
+  id: string; pid: string; loc: string; qty: number;
   off: number | null; expiryDate: Date | null;
   frozen: boolean; bestForOff: number | null; bestForDate: Date | null;
   note: string | null; price: number | null; addedBy: string | null;
+  reminderDaysBefore: number | null;
   status: 'in_stock' | 'used_up' | 'discarded'; product: Product;
 }
 
@@ -79,18 +81,20 @@ function mapStockRow(r: Record<string, unknown>): StockItem {
   const expiryDate = parseDate(r.expiryDate as string | null);
   const bestForDate = parseDate(r.bestForDate as string | null);
   return {
-    id: r.id as string, pid: r.pid as string, loc: r.loc as LocationId,
+    id: r.id as string, pid: r.pid as string, loc: r.loc as string,
     qty: Number(r.qty), off: r.off as number | null, expiryDate,
     frozen: !!r.frozen,
     bestForOff: daysUntil(bestForDate),
     bestForDate,
     note: (r.note as string) ?? null, price: r.price as number | null,
+    reminderDaysBefore: r.reminderDaysBefore != null ? Number(r.reminderDaysBefore) : null,
     addedBy: (r.addedBy as string) ?? null, status: r.status as StockItem['status'],
     product: r.product as Product,
   };
 }
 
 export async function listStock(_householdId: string): Promise<StockItem[]> {
+  void _householdId;
   const rows = await api.get<Record<string, unknown>[]>('/api/stock');
   return rows.map(mapStockRow);
 }
@@ -107,9 +111,10 @@ export function countsOf(items: StockItem[]) {
 }
 
 export interface SavePayload {
-  product: Product; qty: number; loc: LocationId; off: number;
+  product: Product; qty: number; loc: string; off: number;
   note?: string | null; price?: number | null; editId?: string | null;
   frozen?: boolean; bestForOff?: number | null; thawed?: boolean;
+  reminderDaysBefore?: number | null;
 }
 
 export async function saveStock(_householdId: string, p: SavePayload): Promise<void> {
@@ -124,7 +129,7 @@ export async function saveStock(_householdId: string, p: SavePayload): Promise<v
     bestForDate = isoDateInDays(p.bestForOff ?? p.off);
   } else if (p.thawed) {
     frozen = false;
-    expiryDate = isoDateInDays(THAW_DAYS);
+    expiryDate = isoDateInDays(p.off ?? THAW_DAYS);
     bestForDate = null;
   } else {
     frozen = false;
@@ -136,6 +141,7 @@ export async function saveStock(_householdId: string, p: SavePayload): Promise<v
     productId: p.product.id, locationId: p.loc, quantity: p.qty,
     expiryDate, frozen, bestForDate,
     note: p.note ?? null, priceNok: p.price ?? null,
+    reminderDaysBefore: p.reminderDaysBefore ?? null,
   };
 
   if (p.editId) {
@@ -165,8 +171,9 @@ export async function fetchStats(): Promise<StatsData> {
   return api.get<StatsData>('/api/stock/stats');
 }
 
-export async function listProducts(_householdId: string): Promise<Product[]> {
-  return api.get<Product[]>('/api/products');
+export async function listProducts(_householdId: string, includeArchived = false): Promise<Product[]> {
+  void _householdId;
+  return api.get<Product[]>(`/api/products${includeArchived ? '?includeArchived=true' : ''}`);
 }
 
 export async function createProduct(
@@ -174,6 +181,21 @@ export async function createProduct(
   p: { name: string; brand?: string; cat: CategoryId; shelf?: number | null; barcode?: string | null },
 ): Promise<Product> {
   return api.post<Product>('/api/products', p);
+}
+
+export async function updateProduct(
+  id: string,
+  patch: Partial<Pick<Product, 'name' | 'brand' | 'cat' | 'shelf' | 'barcode'>>,
+): Promise<Product> {
+  return api.patch<Product>(`/api/products/${id}`, patch);
+}
+
+export async function deleteProduct(id: string): Promise<{ disposition: 'deleted' | 'archived' }> {
+  return api.delete(`/api/products/${id}`);
+}
+
+export async function restoreProduct(id: string): Promise<Product> {
+  return api.post<Product>(`/api/products/${id}/restore`, {});
 }
 
 export async function getHousehold(): Promise<Household | null> {
@@ -186,6 +208,7 @@ export async function getHousehold(): Promise<Household | null> {
 }
 
 export async function listMembers(_householdId: string): Promise<Member[]> {
+  void _householdId;
   return api.get<Member[]>('/api/household/members');
 }
 
@@ -234,6 +257,7 @@ export interface StorageLocation {
 }
 
 export async function listLocations(_householdId: string): Promise<StorageLocation[]> {
+  void _householdId;
   return api.get<StorageLocation[]>('/api/locations');
 }
 

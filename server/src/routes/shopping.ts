@@ -167,6 +167,7 @@ export async function shoppingRoutes(app: FastifyInstance) {
       from stock_items si
       join products p on p.id = si.product_id
       where si.household_id = ${householdId}
+        and p.archived_at is null
         and si.status = 'used_up'
         and si.resolved_at >= now() - interval '30 days'
         and si.product_id not in (

@@ -1,27 +1,22 @@
 import type { FastifyInstance } from 'fastify';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, or, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { stockItems } from '../db/schema.js';
+import { locations, products, stockItems } from '../db/schema.js';
 
 function mapRow(r: Record<string, unknown>) {
-  const expiryDate = r.expiry_date ? new Date(r.expiry_date as string) : null;
-  const bestForDate = r.best_for_date ? new Date(r.best_for_date as string) : null;
-  const now = Date.now();
-  const msPerDay = 86400000;
-  const off = expiryDate ? Math.round((expiryDate.getTime() - now) / msPerDay) : null;
-  const bestForOff = bestForDate ? Math.round((bestForDate.getTime() - now) / msPerDay) : null;
   return {
     id: r.id,
     pid: r.product_id,
     loc: r.location_id,
     qty: Number(r.quantity),
-    off,
-    expiryDate,
+    off: r.days_left != null ? Number(r.days_left) : null,
+    expiryDate: r.expiry_date ?? null,
     frozen: r.frozen,
-    bestForOff,
-    bestForDate,
+    bestForOff: r.best_for_days_left != null ? Number(r.best_for_days_left) : null,
+    bestForDate: r.best_for_date ?? null,
     note: r.note ?? null,
     price: r.price_nok != null ? Number(r.price_nok) : null,
+    reminderDaysBefore: r.reminder_days_before != null ? Number(r.reminder_days_before) : null,
     addedBy: r.added_by_name ?? null,
     status: r.status,
     product: {
@@ -34,6 +29,15 @@ function mapRow(r: Record<string, unknown>) {
   };
 }
 
+function parseReminderDays(value: unknown): number | null {
+  if (value == null) return null;
+  const days = Number(value);
+  if (!Number.isInteger(days) || days < -1 || days > 14) {
+    throw new Error('INVALID_REMINDER');
+  }
+  return days;
+}
+
 export async function stockRoutes(app: FastifyInstance) {
   app.get('/stock', { preHandler: app.requireAuth }, async (req) => {
     const { householdId } = req.user;
@@ -41,6 +45,8 @@ export async function stockRoutes(app: FastifyInstance) {
 
     const rows = await db.execute(sql`
       select si.*,
+             si.expiry_date - current_date as days_left,
+             si.best_for_date - current_date as best_for_days_left,
              p.name  as product_name,
              p.brand as product_brand,
              p.category_id,
@@ -60,11 +66,36 @@ export async function stockRoutes(app: FastifyInstance) {
   app.post('/stock', { preHandler: app.requireAuth }, async (req, reply) => {
     const { householdId, userId } = req.user;
     if (!householdId) return reply.code(403).send({ error: 'Join a household first', code: 'FORBIDDEN' });
-    const { productId, locationId, quantity, expiryDate, frozen, bestForDate, note, priceNok } =
+    const { productId, locationId, quantity, expiryDate, frozen, bestForDate, note, priceNok, reminderDaysBefore } =
       (req.body ?? {}) as Record<string, unknown>;
 
     if (!productId || !locationId || quantity == null) {
       return reply.code(400).send({ error: 'productId, locationId, quantity required', code: 'INVALID_INPUT' });
+    }
+    if (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0) {
+      return reply.code(400).send({ error: 'quantity must be greater than zero', code: 'INVALID_INPUT' });
+    }
+
+    const [[product], [location]] = await Promise.all([
+      db.select({ id: products.id }).from(products).where(and(
+        eq(products.id, String(productId)),
+        isNull(products.archivedAt),
+        or(isNull(products.householdId), eq(products.householdId, householdId)),
+      )).limit(1),
+      db.select({ id: locations.id }).from(locations).where(and(
+        eq(locations.id, String(locationId)),
+        or(isNull(locations.householdId), eq(locations.householdId, householdId)),
+      )).limit(1),
+    ]);
+    if (!product || !location) {
+      return reply.code(400).send({ error: 'Invalid product or location', code: 'INVALID_INPUT' });
+    }
+
+    let reminder: number | null;
+    try {
+      reminder = parseReminderDays(reminderDaysBefore);
+    } catch {
+      return reply.code(400).send({ error: 'reminderDaysBefore must be null or an integer from -1 to 14', code: 'INVALID_INPUT' });
     }
 
     const [item] = await db
@@ -79,12 +110,15 @@ export async function stockRoutes(app: FastifyInstance) {
         bestForDate: (bestForDate as string) ?? null,
         note: (note as string) ?? null,
         priceNok: priceNok != null ? String(priceNok) : null,
+        reminderDaysBefore: reminder,
         addedBy: userId,
       })
       .returning();
 
     const rows = await db.execute(sql`
       select si.*,
+             si.expiry_date - current_date as days_left,
+             si.best_for_date - current_date as best_for_days_left,
              p.name  as product_name,
              p.brand as product_brand,
              p.category_id,
@@ -109,8 +143,27 @@ export async function stockRoutes(app: FastifyInstance) {
       .limit(1);
     if (!existing[0]) return reply.code(404).send({ error: 'Not found', code: 'NOT_FOUND' });
 
-    const { locationId, quantity, expiryDate, frozen, bestForDate, note, priceNok } =
+    const { locationId, quantity, expiryDate, frozen, bestForDate, note, priceNok, reminderDaysBefore } =
       (req.body ?? {}) as Record<string, unknown>;
+
+    let reminder: number | null | undefined;
+    if (reminderDaysBefore !== undefined) {
+      try {
+        reminder = parseReminderDays(reminderDaysBefore);
+      } catch {
+        return reply.code(400).send({ error: 'reminderDaysBefore must be null or an integer from -1 to 14', code: 'INVALID_INPUT' });
+      }
+    }
+    if (quantity != null && (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0)) {
+      return reply.code(400).send({ error: 'quantity must be greater than zero', code: 'INVALID_INPUT' });
+    }
+    if (locationId != null) {
+      const [location] = await db.select({ id: locations.id }).from(locations).where(and(
+        eq(locations.id, String(locationId)),
+        or(isNull(locations.householdId), eq(locations.householdId, householdId)),
+      )).limit(1);
+      if (!location) return reply.code(400).send({ error: 'Invalid location', code: 'INVALID_INPUT' });
+    }
 
     await db.update(stockItems).set({
       ...(locationId != null && { locationId: locationId as string }),
@@ -120,10 +173,13 @@ export async function stockRoutes(app: FastifyInstance) {
       ...(bestForDate !== undefined && { bestForDate: bestForDate as string }),
       ...(note !== undefined && { note: note as string }),
       ...(priceNok !== undefined && { priceNok: priceNok != null ? String(priceNok) : null }),
+      ...(reminderDaysBefore !== undefined && { reminderDaysBefore: reminder }),
     }).where(eq(stockItems.id, id));
 
     const rows = await db.execute(sql`
       select si.*,
+             si.expiry_date - current_date as days_left,
+             si.best_for_date - current_date as best_for_days_left,
              p.name  as product_name,
              p.brand as product_brand,
              p.category_id,

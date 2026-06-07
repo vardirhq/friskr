@@ -10,7 +10,7 @@ import { Card } from '../components/Card';
 import { Press } from '../components/Press';
 import { Btn } from '../components/Btn';
 import { IconLogo, IconBell, IconLeaf, IconTrend, IconScan, IconPlus, IconCart, IconBox } from '../components/icons';
-import { LOCATIONS } from '../lib/reference';
+import { useLocationStore } from '../stores/locations';
 import type { StockItem, Member } from '../lib/friskr';
 import type { CategoryId } from '../lib/database.types';
 
@@ -129,6 +129,7 @@ function NotifPanel({ notifs, unreadCount, onMarkAll, onClose, onOpenItem }: { n
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export function HomeScreen() {
+  const { locations } = useLocationStore();
   const { items, counts } = useStockStore();
   const { household } = useHouseholdStore();
   const { setTab, openSheet } = useUiStore();
@@ -280,7 +281,7 @@ const notifs = useMemo(() => buildNotifs(items, household?.members ?? []), [item
               <Card pad={20} style={{ textAlign: 'center', color: 'var(--ink-3)', fontSize: 13.5 }}>Ingenting haster akkurat nå 🌿</Card>
             )}
             {soonItems.map((it) => {
-              const loc = LOCATIONS[it.loc];
+              const loc = locations.find((location) => location.id === it.loc);
               return (
                 <Card key={it.id} pad={12} onClick={() => openSheet({ type: 'edit', itemId: it.id })}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>

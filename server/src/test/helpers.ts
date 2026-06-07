@@ -1,7 +1,7 @@
 import { buildApp } from '../index.js';
 import { db } from '../db/client.js';
 import {
-  stockItems, householdMembers, locations, products,
+  stockItems, shoppingListItems, householdMembers, locations, products,
   households, refreshTokens, otpCodes, users,
 } from '../db/schema.js';
 import { isNotNull } from 'drizzle-orm';
@@ -14,6 +14,7 @@ export async function createTestApp(): Promise<FastifyInstance> {
 }
 
 export async function cleanDb() {
+  await db.delete(shoppingListItems);
   await db.delete(stockItems);
   await db.delete(householdMembers);
   await db.delete(locations).where(isNotNull(locations.householdId));

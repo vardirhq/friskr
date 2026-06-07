@@ -9,7 +9,7 @@ import { StatusPill } from '../components/StatusPill';
 import { Press } from '../components/Press';
 import { IconCheckCircle, IconLeaf, IconCheck, IconTrash, IconLocFreezer, ICON_MAP } from '../components/icons';
 import { fmtShort } from '../lib/dates';
-import { LOCATIONS } from '../lib/reference';
+import { useLocationStore } from '../stores/locations';
 
 function EmptyState({ icon: I, title, body }: { icon: React.ComponentType<{size?: number}>; title: string; body: string }) {
   return (
@@ -32,6 +32,7 @@ interface StockRowProps {
 }
 
 function StockRow({ it, onConsume, onThrow, onOpen, dense }: StockRowProps) {
+  const { locations } = useLocationStore();
   const [dx, setDx] = useState(0);
   const [open, setOpen] = useState(0);
   const [flying, setFlying] = useState(false);
@@ -76,7 +77,7 @@ function StockRow({ it, onConsume, onThrow, onOpen, dense }: StockRowProps) {
 
   const useArm = dx >= ARM, throwArm = -dx >= ARM;
   const transition = startX.current == null ? 'transform .28s cubic-bezier(.22,1,.36,1)' : 'none';
-  const loc = LOCATIONS[it.loc];
+  const loc = locations.find((location) => location.id === it.loc);
   const LocIcon = loc ? ICON_MAP[loc.icon] : null;
 
   return (
@@ -147,6 +148,7 @@ export function StockScreen() {
   const { openSheet, showToast } = useUiStore();
   const [tab, setTab] = useState('soon');
   const stockStore = useStockStore();
+  const { locations } = useLocationStore();
 
   const tabs = [
     { key: 'soon', label: 'Snart', count: counts.soon, tint: 'var(--soon-tint)', color: 'var(--soon)' },
@@ -177,8 +179,8 @@ export function StockScreen() {
     });
   };
 
-  const locationGroups = Object.entries(LOCATIONS).map(([lk, meta]) => ({
-    key: lk, meta, items: items.filter((i) => i.loc === lk).sort((a, b) => (a.off ?? 999) - (b.off ?? 999)),
+  const locationGroups = locations.map((meta) => ({
+    key: meta.id, meta, items: items.filter((i) => i.loc === meta.id).sort((a, b) => (a.off ?? 999) - (b.off ?? 999)),
   })).filter((g) => g.items.length > 0);
 
   return (

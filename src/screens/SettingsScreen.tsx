@@ -1,4 +1,5 @@
-import { useState, type ComponentType } from 'react';
+import { useRef, useState, type ComponentType } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useHouseholdStore } from '../stores/household';
 import { useAuthStore } from '../stores/auth';
 import { useSettingsStore } from '../stores/settings';
@@ -10,6 +11,7 @@ import {
   IconLocFridge, IconSpark, IconLeaf, IconLogout, IconChevR, IconPlus, IconMinus,
   IconBox, IconCheck,
 } from '../components/icons';
+import { requestNotificationPermission } from '../lib/notifications';
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
@@ -49,16 +51,48 @@ function Section({ title, children }: { title?: string; children: React.ReactNod
 export function SettingsScreen() {
   const { household } = useHouseholdStore();
   const { signOut, user } = useAuthStore();
-  const { darkMode, pushEnabled, notifyDaysAhead, accent, density, language, setDark, setPush, setNotifyDays, setAccent, setDensity } = useSettingsStore();
-  const { openSheet, setTab } = useUiStore();
+  const {
+    darkMode, pushEnabled, notifyDaysAhead, accent, density, language, debugMode,
+    setDark, setPush, setNotifyDays, setAccent, setDensity, setDebugMode,
+  } = useSettingsStore();
+  const { openSheet, setTab, showToast } = useUiStore();
   const member = household?.members.find(m => m.userId === user?.id) ?? household?.members[0];
 
   const [langOpen, setLangOpen] = useState(false);
+  const debugTapRef = useRef({ count: 0, lastTap: 0 });
 
   const ACCENTS = [['#15a05a','Grønn'],['#0e9488','Teal'],['#3b82c4','Blå'],['#c2410c','Oransje'],['#7c5cd6','Lilla'],['#d4842a','Amber']] as const;
   const DENSITIES = [['compact','Kompakt'],['regular','Normal'],['comfy','Luftig']] as const;
   const LANGS = [['nb','Norsk (bokmål)'],['nn','Norsk (nynorsk)'],['en','English']] as const;
   const langLabel = (LANGS.find(l => l[0] === language) ?? LANGS[0])[1];
+  const toggleNotifications = async () => {
+    if (pushEnabled) {
+      setPush(false);
+      return;
+    }
+    if (!Capacitor.isNativePlatform()) {
+      showToast('Lokale varsler er bare tilgjengelige i mobilappen', 'x');
+      return;
+    }
+    if (await requestNotificationPermission()) {
+      setPush(true);
+    } else {
+      setPush(false);
+      showToast('Varsling er blokkert i enhetsinnstillingene', 'x');
+    }
+  };
+  const handleVersionTap = () => {
+    if (debugMode) return;
+    const now = Date.now();
+    const previous = debugTapRef.current;
+    const count = now - previous.lastTap > 1800 ? 1 : previous.count + 1;
+    debugTapRef.current = { count, lastTap: now };
+    if (count >= 7) {
+      setDebugMode(true);
+      debugTapRef.current = { count: 0, lastTap: 0 };
+      showToast('Debugmodus aktivert', 'check');
+    }
+  };
 
   return (
     <div className="noscroll" style={{ height: '100%', overflow: 'auto', padding: '14px 16px 36px' }}>
@@ -88,12 +122,12 @@ export function SettingsScreen() {
       </Section>
 
       <Section title="Varsler">
-        <Row icon={IconBell} label="Push-varsler" sub="Få beskjed før varer utløper" tint="var(--soon-tint)" ic="var(--soon)" right={<Toggle on={pushEnabled} onClick={() => setPush(!pushEnabled)} />} />
+        <Row icon={IconBell} label="Lokale varsler" sub="Planlegges på denne enheten" tint="var(--soon-tint)" ic="var(--soon)" right={<Toggle on={pushEnabled} onClick={toggleNotifications} />} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 4px', opacity: pushEnabled ? 1 : 0.4, pointerEvents: pushEnabled ? 'auto' : 'none' }}>
           <span style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--soon-tint)', color: 'var(--soon)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><IconClock size={20} /></span>
           <div style={{ flex: 1 }}>
             <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700 }}>Varsle på forhånd</p>
-            <p style={{ margin: '1px 0 0', fontSize: 12.5, color: 'var(--ink-3)' }}>{notifyDaysAhead} dager før utløp</p>
+            <p style={{ margin: '1px 0 0', fontSize: 12.5, color: 'var(--ink-3)' }}>{notifyDaysAhead === 0 ? 'På utløpsdagen' : `${notifyDaysAhead} dager før utløp`}</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Press onClick={() => setNotifyDays(notifyDaysAhead - 1)} style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-2)' }}><IconMinus size={17} /></Press>
@@ -152,8 +186,22 @@ export function SettingsScreen() {
 
       <Section title="Om">
         <Row icon={IconSpark} label="Se introduksjon" sub="Gjennomgå oppsettet på nytt" onClick={() => openSheet({ type: 'onboarding' })} />
-        <Row icon={IconLeaf} label="friskr" sub="Versjon 2.0 · Norge" right={<span className="tnum" style={{ fontSize: 12, color: 'var(--ink-3)' }}>2.0.0</span>} last />
+        <Row icon={IconLeaf} label="friskr" sub="Versjon 2.0 · Norge" onClick={handleVersionTap} right={<span className="tnum" style={{ fontSize: 12, color: 'var(--ink-3)' }}>2.0.0</span>} last />
       </Section>
+
+      {debugMode && (
+        <Section title="Debug">
+          <Row
+            icon={IconBox}
+            label="Debugmodus"
+            sub="Viser teknisk informasjon i appen"
+            tint="var(--soon-tint)"
+            ic="var(--soon)"
+            right={<Toggle on onClick={() => setDebugMode(false)} />}
+            last
+          />
+        </Section>
+      )}
 
       <Press onClick={signOut} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, width: '100%', padding: '14px', marginBottom: 8, borderRadius: 'var(--r-sm)', background: 'var(--expired-tint)', color: 'var(--expired)', fontSize: 14.5, fontWeight: 700 }}>
         <IconLogout size={19} /> Logg ut

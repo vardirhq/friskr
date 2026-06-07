@@ -79,6 +79,7 @@ export const products = pgTable('products', {
   defaultShelfDays: integer('default_shelf_days'),
   barcode: text('barcode'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
 });
 
 export const stockItems = pgTable('stock_items', {
@@ -92,6 +93,7 @@ export const stockItems = pgTable('stock_items', {
   bestForDate: date('best_for_date'),
   note: text('note'),
   priceNok: numeric('price_nok', { precision: 10, scale: 2 }),
+  reminderDaysBefore: integer('reminder_days_before'),
   status: text('status').notNull().default('in_stock'),
   addedBy: uuid('added_by').references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

@@ -10,10 +10,8 @@ import { Card } from '../components/Card';
 import { Btn } from '../components/Btn';
 import { Press } from '../components/Press';
 import { Sheet } from '../components/Sheet';
-import {
-  listLocations, createLocation, updateLocation as apiUpdateLocation, deleteLocation,
-  type StorageLocation,
-} from '../lib/friskr';
+import type { StorageLocation } from '../lib/friskr';
+import { useLocationStore } from '../stores/locations';
 
 const LOC_ICONS: Array<[string, string]> = [
   ['locFridge', 'Kjøleskap'],
@@ -162,20 +160,12 @@ export function LocationsScreen() {
   const { setTab } = useUiStore();
   const { items } = useStockStore();
   const { household } = useHouseholdStore();
-
-  const [locations, setLocations] = useState<StorageLocation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { locations, loading, load, create, update, remove } = useLocationStore();
   const [sheet, setSheet] = useState<{ id: string | null } | null>(null);
 
   useEffect(() => {
     if (!household) return;
-    setLoading(true);
-    const timeout = setTimeout(() => setLoading(false), 8000);
-    listLocations(household.id)
-      .then(setLocations)
-      .catch(() => {})
-      .finally(() => { clearTimeout(timeout); setLoading(false); });
-    return () => clearTimeout(timeout);
+    load(household.id).catch(console.error);
   }, [household?.id]);
 
   const counts: Record<string, number> = {};
@@ -189,22 +179,17 @@ export function LocationsScreen() {
   const save = async (data: { label: string; icon: string; freezer: boolean }) => {
     if (!household) return;
     if (sheet?.id) {
-      await apiUpdateLocation(sheet.id, data);
+      await update(sheet.id, data);
     } else {
-      const id = `loc_${Date.now()}`;
-      await createLocation(household.id, { id, ...data });
+      await create(household.id, data);
     }
-    const updated = await listLocations(household.id);
-    setLocations(updated);
     close();
   };
 
   const del = async () => {
     if (!sheet?.id || !household) return;
     if ((counts[sheet.id] || 0) > 0) return;
-    await deleteLocation(sheet.id);
-    const updated = await listLocations(household.id);
-    setLocations(updated);
+    await remove(sheet.id);
     close();
   };
 
@@ -250,12 +235,14 @@ export function LocationsScreen() {
                     </div>
                     <p className="tnum" style={{ margin: '2px 0 0', fontSize: 12.5, color: 'var(--ink-3)' }}>{counts[loc.id] || 0} varer</p>
                   </div>
-                  <Press
-                    onClick={() => openEdit(loc.id)}
-                    style={{ width: 34, height: 34, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-3)' }}
-                  >
-                    <IconPencil size={17} />
-                  </Press>
+                  {loc.householdId && (
+                    <Press
+                      onClick={() => openEdit(loc.id)}
+                      style={{ width: 34, height: 34, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-3)' }}
+                    >
+                      <IconPencil size={17} />
+                    </Press>
+                  )}
                 </div>
               );
             })}
