@@ -28,6 +28,9 @@ const ExpiryTextRecognizer = registerPlugin<{
   recognize(options: { base64: string }): Promise<{ text: string }>;
 }>('ExpiryTextRecognizer');
 
+const DATE_SCAN_INTERVAL_MS = 650;
+const DATE_SCAN_STABLE_READS = 2;
+
 interface ScanScreenProps {
   dateOnlyProduct?: Product;
   onDateScanned?: (offDays: number) => void;
@@ -50,7 +53,12 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
   const [ocrText, setOcrText] = useState('');
   const [ocrParsedDate, setOcrParsedDate] = useState<Date | null>(null);
   const [ocrAttempted, setOcrAttempted] = useState(false);
+  const [autoDateScanning, setAutoDateScanning] = useState(false);
+  const [dateScanAttempts, setDateScanAttempts] = useState(0);
   const activeRef = useRef(false);
+  const dateScanLoopRef = useRef<number | null>(null);
+  const dateScanBusyRef = useRef(false);
+  const dateScanStableRef = useRef<{ iso: string; count: number } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const productDraft = product && source !== 'catalogue'
@@ -72,7 +80,26 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
     setTransparent(false);
   };
 
+  const finishDateRead = (date: Date, offDays: number) => {
+    stopDateScanLoop();
+    stopDateStream();
+    setOcrParsedDate(date);
+    setOffDays(offDays);
+    setPhase('dateread');
+  };
+
+  const stopDateScanLoop = () => {
+    if (dateScanLoopRef.current != null) {
+      window.clearInterval(dateScanLoopRef.current);
+      dateScanLoopRef.current = null;
+    }
+    dateScanBusyRef.current = false;
+    dateScanStableRef.current = null;
+    setAutoDateScanning(false);
+  };
+
   const stopDateStream = () => {
+    stopDateScanLoop();
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
@@ -153,6 +180,7 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
     setOcrText('');
     setOcrParsedDate(null);
     setOcrAttempted(false);
+    setDateScanAttempts(0);
     if (dateOnly) {
       setPhase('datescan');
       enterDateScan();
@@ -167,6 +195,7 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
   // so getUserMedia autoplay is permitted by the browser/WebView.
   const enterDateScan = async () => {
     setDateError(null);
+    setDateScanAttempts(0);
     setPhase('datescan');
     if (Capacitor.isNativePlatform()) {
       try {
@@ -185,6 +214,7 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
           enableZoom: true,
           lockAndroidOrientation: true,
         });
+        startDateScanLoop();
       } catch {
         document.documentElement.classList.remove('camera-preview-active');
         document.body.classList.remove('camera-preview-active');
@@ -208,7 +238,52 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
     }
   };
 
+  const runNativeDateRead = async (quality = 70) => {
+    const frame = await CameraPreview.capture({ quality });
+    const recognized = await ExpiryTextRecognizer.recognize({ base64: frame.value });
+    return readDateFromText(recognized.text);
+  };
+
+  const startDateScanLoop = () => {
+    if (!Capacitor.isNativePlatform() || dateScanLoopRef.current != null) return;
+    setAutoDateScanning(true);
+    setOcrAttempted(true);
+    dateScanLoopRef.current = window.setInterval(() => {
+      if (dateScanBusyRef.current || phase === 'dateread') return;
+      dateScanBusyRef.current = true;
+      runNativeDateRead(55)
+        .then((result) => {
+          setDateScanAttempts((attempts) => attempts + 1);
+          setOcrText(result.rawText);
+          setOcrParsedDate(result.date);
+
+          if (result.date && result.offDays != null) {
+            const iso = result.date.toISOString().slice(0, 10);
+            const previous = dateScanStableRef.current;
+            const nextCount = previous?.iso === iso ? previous.count + 1 : 1;
+            dateScanStableRef.current = { iso, count: nextCount };
+            setDateError(nextCount >= DATE_SCAN_STABLE_READS ? null : 'Fant mulig dato — holder den stabil...');
+            if (nextCount >= DATE_SCAN_STABLE_READS) {
+              finishDateRead(result.date, result.offDays);
+            }
+          } else {
+            dateScanStableRef.current = null;
+            setDateError((current) => current === 'Fant mulig dato — holder den stabil...' ? null : current);
+          }
+        })
+        .catch((error) => {
+          if (debugMode) {
+            setOcrText(`[OCR-feil] ${error instanceof Error ? error.message : String(error)}`);
+          }
+        })
+        .finally(() => {
+          dateScanBusyRef.current = false;
+        });
+    }, DATE_SCAN_INTERVAL_MS);
+  };
+
   const captureDate = async () => {
+    stopDateScanLoop();
     setDateError(null);
     setOcrText('');
     setOcrParsedDate(null);
@@ -217,14 +292,11 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
     try {
       let result;
       if (Capacitor.isNativePlatform()) {
-        const frame = await CameraPreview.capture({ quality: 95 });
-        const recognized = await ExpiryTextRecognizer.recognize({ base64: frame.value });
-        result = readDateFromText(recognized.text);
+        result = await runNativeDateRead(95);
         if (!result.date) {
           await new Promise((resolve) => setTimeout(resolve, 180));
-          const retryFrame = await CameraPreview.capture({ quality: 95 });
-          const retry = await ExpiryTextRecognizer.recognize({ base64: retryFrame.value });
-          result = readDateFromText(`${recognized.text}\n${retry.text}`);
+          const retry = await runNativeDateRead(95);
+          result = readDateFromText(`${result.rawText}\n${retry.rawText}`);
         }
       } else {
         if (!videoRef.current || !streamRef.current) throw new Error('Camera stream is not ready');
@@ -233,12 +305,11 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
       setOcrText(result.rawText);
       setOcrParsedDate(result.date);
       if (result.date && result.offDays != null) {
-        stopDateStream();
-        setOffDays(result.offDays);
-        setPhase('dateread');
+        finishDateRead(result.date, result.offDays);
       } else {
         setDateError('Fant ingen dato — prøv igjen eller sett dato manuelt');
         setPhase('datescan');
+        startDateScanLoop();
       }
     } catch (error) {
       if (debugMode) {
@@ -246,6 +317,7 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
       }
       setDateError('Kunne ikke lese datoen — hold datoen nærmere og prøv igjen');
       setPhase('datescan');
+      startDateScanLoop();
     }
   };
 
@@ -360,7 +432,7 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
         <p style={{ position: 'relative', marginTop: 'calc(38% - 76px + 96px)', textAlign: 'center', color: 'rgba(255,255,255,.78)', fontSize: 13.5, fontWeight: 600, padding: '0 30px' }}>
           {phase === 'scanning' && (error ?? (Capacitor.isNativePlatform() ? 'Rett kameraet mot strekkoden' : 'Kun tilgjengelig i appen'))}
           {phase === 'lookup' && 'Slår opp produktet…'}
-          {phase === 'datescan' && (dateError ?? 'Pek mot «best før»-datoen på pakken')}
+          {phase === 'datescan' && (dateError ?? (autoDateScanning ? `Leter etter dato automatisk${dateScanAttempts > 0 ? ` · ${dateScanAttempts}` : ''}` : 'Pek mot «best før»-datoen på pakken'))}
           {phase === 'lookup-date' && 'Leser av datoen…'}
         </p>
 
@@ -414,8 +486,13 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
         {phase === 'datescan' && (
           <div style={{ position: 'absolute', bottom: 30, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
             <Press onClick={captureDate} style={{ width: 72, height: 72, borderRadius: 999, background: 'rgba(255,255,255,.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid rgba(255,255,255,.5)' }}>
-              <span style={{ width: 56, height: 56, borderRadius: 999, background: '#fff' }} />
+              <span style={{ width: 56, height: 56, borderRadius: 999, background: autoDateScanning ? 'rgba(255,255,255,.75)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {autoDateScanning && <span style={{ width: 22, height: 22, border: '3px solid rgba(10,13,11,.22)', borderTopColor: 'var(--primary)', borderRadius: 999, animation: 'friskr-spin .9s linear infinite' }} />}
+              </span>
             </Press>
+            <p style={{ margin: '-8px 0 0', color: 'rgba(255,255,255,.7)', fontSize: 12, fontWeight: 700 }}>
+              {autoDateScanning ? 'Skanner kontinuerlig · trykk for øyeblikksbilde' : 'Trykk for å lese dato'}
+            </p>
             <Press onClick={() => {
               stopDateStream();
               if (dateOnly) onCancelDateScan?.();
