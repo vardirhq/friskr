@@ -51,4 +51,13 @@ describe('GET /api/scan', () => {
     });
     expect(res.statusCode).toBe(400);
   });
+
+  it('returns 400 if barcode is invalid', async () => {
+    const res = await app.inject({
+      method: 'GET', url: '/api/scan?barcode=bad%20barcode!',
+      headers: { authorization: `Bearer ${jwt}` },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_INPUT');
+  });
 });

@@ -134,7 +134,7 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
   };
 
   const copy = () => {
-    try { navigator.clipboard?.writeText(household!.code); } catch (e) {}
+    navigator.clipboard?.writeText(household!.code).catch(() => undefined);
     setCopied(true); setTimeout(() => setCopied(false), 1600);
     showToast('Kode kopiert', 'check');
   };

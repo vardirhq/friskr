@@ -1,57 +1,117 @@
-// Norwegian/European date patterns, most specific first
-const DATE_PATTERNS: Array<{ re: RegExp; parse: (m: RegExpMatchArray) => Date | null }> = [
+export interface DateCandidate {
+  date: Date;
+  raw: string;
+  index: number;
+  precision: 'day' | 'month';
+  score: number;
+}
+
+const EXPIRY_LABEL_RE = /best\s*f[oø]r|siste\s*forbruksdag|utl[oø]ps?dato|exp|expiry|bb|bbe/i;
+
+function normaliseOcrText(text: string): string {
+  return text
+    .replace(/[oO]/g, '0')
+    .replace(/[lI|]/g, '1')
+    .replace(/[–—]/g, '-');
+}
+
+function exactDate(year: number, month: number, day: number): Date | null {
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+function isAcceptableExpiryDate(date: Date): boolean {
+  const now = new Date();
+  const min = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+  const max = new Date(now.getFullYear() + 5, 11, 31);
+  return date >= min && date <= max;
+}
+
+// Norwegian/European date patterns, most specific first.
+const DATE_PATTERNS: Array<{
+  re: RegExp;
+  precision: 'day' | 'month';
+  parse: (m: RegExpMatchArray) => Date | null;
+}> = [
   // YYYY-MM-DD or YYYY/MM/DD
   {
     re: /\b(20\d{2})[-./](0?[1-9]|1[0-2])[-./](0?[1-9]|[12]\d|3[01])\b/,
-    parse: (m) => new Date(+m[1], +m[2] - 1, +m[3]),
+    precision: 'day',
+    parse: (m) => exactDate(+m[1], +m[2], +m[3]),
   },
   // DD.MM.YYYY or DD/MM/YYYY or DD-MM-YYYY
   {
     re: /\b(0?[1-9]|[12]\d|3[01])\s*[-./ ]\s*(0?[1-9]|1[0-2])\s*[-./ ]\s*(20\d{2})\b/,
-    parse: (m) => new Date(+m[3], +m[2] - 1, +m[1]),
+    precision: 'day',
+    parse: (m) => exactDate(+m[3], +m[2], +m[1]),
   },
   // DD.MM.YY (2-digit year, assume 20xx)
   {
     re: /\b(0?[1-9]|[12]\d|3[01])\s*[-./ ]\s*(0?[1-9]|1[0-2])\s*[-./ ]\s*(\d{2})\b/,
-    parse: (m) => new Date(2000 + +m[3], +m[2] - 1, +m[1]),
+    precision: 'day',
+    parse: (m) => exactDate(2000 + +m[3], +m[2], +m[1]),
   },
   // DDMMYYYY or DDMMYY, often used by dot-matrix printers
   {
     re: /\b(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(20\d{2})\b/,
-    parse: (m) => new Date(+m[3], +m[2] - 1, +m[1]),
+    precision: 'day',
+    parse: (m) => exactDate(+m[3], +m[2], +m[1]),
   },
   {
     re: /\b(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(\d{2})\b/,
-    parse: (m) => new Date(2000 + +m[3], +m[2] - 1, +m[1]),
+    precision: 'day',
+    parse: (m) => exactDate(2000 + +m[3], +m[2], +m[1]),
   },
   // MM/YYYY (month + year only — use last day of month)
   {
     re: /\b(0?[1-9]|1[0-2])[./](20\d{2})\b/,
+    precision: 'month',
     parse: (m) => new Date(+m[2], +m[1], 0),
   },
 ];
 
-export function parseExpiryDate(text: string): Date | null {
-  const normalised = text.replace(/[oO]/g, '0').replace(/[lI]/g, '1');
-  for (const { re, parse } of DATE_PATTERNS) {
-    const m = normalised.match(re);
-    if (m) {
-      const d = parse(m);
-      const expectedDay = m[3] && m[1].length <= 2 ? +m[1] : null;
-      const expectedMonth = m[3] && m[1].length <= 2 ? +m[2] : null;
-      if (
-        d && !isNaN(d.getTime())
-        && (expectedDay == null || d.getDate() === expectedDay)
-        && (expectedMonth == null || d.getMonth() === expectedMonth - 1)
-      ) {
-        const now = new Date();
-        const min = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
-        const max = new Date(now.getFullYear() + 5, 11, 31);
-        if (d >= min && d <= max) return d;
-      }
+export function extractExpiryDateCandidates(text: string): DateCandidate[] {
+  const normalised = normaliseOcrText(text);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const seen = new Set<string>();
+  const candidates: DateCandidate[] = [];
+
+  for (const { re, parse, precision } of DATE_PATTERNS) {
+    const global = new RegExp(re.source, 'g');
+    for (const match of normalised.matchAll(global)) {
+      const date = parse(match as RegExpMatchArray);
+      if (!date || !isAcceptableExpiryDate(date)) continue;
+
+      const index = match.index ?? 0;
+      const key = `${date.toISOString().slice(0, 10)}:${precision}:${index}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const nearby = normalised.slice(Math.max(0, index - 36), Math.min(normalised.length, index + 24));
+      let score = 0;
+      if (EXPIRY_LABEL_RE.test(nearby)) score += 30;
+      if (precision === 'day') score += 12;
+      if (date >= today) score += 8;
+      const distanceDays = Math.abs(date.getTime() - today.getTime()) / 86_400_000;
+      score -= Math.min(distanceDays / 180, 8);
+
+      candidates.push({ date, raw: match[0], index, precision, score });
     }
   }
-  return null;
+
+  return candidates.sort((a, b) => b.score - a.score || a.index - b.index);
+}
+
+export function parseExpiryDate(text: string): Date | null {
+  return extractExpiryDateCandidates(text)[0]?.date ?? null;
 }
 
 function imageToCanvas(image: CanvasImageSource, width: number, height: number): HTMLCanvasElement {

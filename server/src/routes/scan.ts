@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { or, isNull, eq } from 'drizzle-orm';
+import { and, or, isNull, eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { products } from '../db/schema.js';
 
@@ -21,16 +21,23 @@ export async function scanRoutes(app: FastifyInstance) {
     const { barcode } = req.query as { barcode?: string };
     const { householdId } = req.user;
     if (!barcode) return reply.code(400).send({ error: 'barcode required', code: 'INVALID_INPUT' });
+    if (!/^[A-Za-z0-9._-]{4,64}$/.test(barcode)) {
+      return reply.code(400).send({ error: 'invalid barcode', code: 'INVALID_INPUT' });
+    }
 
-    const catRows = await db
+    const [found] = await db
       .select()
       .from(products)
       .where(
-        householdId
-          ? or(isNull(products.householdId), eq(products.householdId, householdId))
-          : isNull(products.householdId)
-      );
-    const found = catRows.find((p) => p.barcode === barcode);
+        and(
+          eq(products.barcode, barcode),
+          isNull(products.archivedAt),
+          householdId
+            ? or(isNull(products.householdId), eq(products.householdId, householdId))
+            : isNull(products.householdId),
+        ),
+      )
+      .limit(1);
     if (found) {
       return {
         source: 'catalogue',
@@ -42,8 +49,13 @@ export async function scanRoutes(app: FastifyInstance) {
       };
     }
 
+    if (!/^\d{4,32}$/.test(barcode)) return { source: 'none', barcode };
+
     try {
-      const res = await fetch(`${OFF_API}/${barcode}?fields=product_name,brands,categories_tags,quantity`);
+      const res = await fetch(`${OFF_API}/${barcode}?fields=product_name,brands,categories_tags,quantity`, {
+        signal: AbortSignal.timeout(5_000),
+        headers: { 'user-agent': 'friskr/2.0 (product lookup)' },
+      });
       if (res.ok) {
         const data = await res.json() as { status: number; product?: Record<string, unknown> };
         if (data.status === 1 && data.product) {

@@ -107,25 +107,65 @@ export function ShoppingScreen() {
   const itemNames = new Set(items.map((i) => i.name.toLowerCase()));
   const filteredSuggestions = suggestions.filter((s) => !itemNames.has(s.name.toLowerCase()));
 
-  const submit = () => {
+  const submit = async () => {
     const name = draft.trim();
     if (!name) return;
-    shoppingStore.add({ name, cat: 'annet', qty: 1 });
-    setDraft('');
+    try {
+      await shoppingStore.add({ name, cat: 'annet', qty: 1 });
+      setDraft('');
+    } catch {
+      showToast('Kunne ikke legge til varen. Prøv igjen.', 'error');
+    }
   };
 
-  const toggle = (it: ShoppingItem) => {
+  const toggle = async (it: ShoppingItem) => {
     const becomingDone = !it.done;
-    shoppingStore.toggle(it.id, becomingDone);
-    if (becomingDone) {
-      const product = it.productId
-        ? { id: it.productId, name: it.name, cat: it.cat as CategoryId, brand: '', shelf: null } as import('../lib/friskr').Product
-        : undefined;
-      showToast(`${it.name} i kurven`, undefined, {
-        label: 'Legg til på lager',
-        onAction: () => openSheet({ type: 'add', product }),
-      });
+    try {
+      await shoppingStore.toggle(it.id, becomingDone);
+      if (becomingDone) {
+        const product = it.productId
+          ? { id: it.productId, name: it.name, cat: it.cat as CategoryId, brand: '', shelf: null } as import('../lib/friskr').Product
+          : undefined;
+        showToast(`${it.name} i kurven`, undefined, {
+          label: 'Legg til på lager',
+          onAction: () => openSheet({ type: 'add', product }),
+        });
+      }
+    } catch {
+      showToast('Kunne ikke oppdatere handlelisten. Prøv igjen.', 'error');
     }
+  };
+
+  const addSuggestion = async (suggestion: typeof suggestions[number]) => {
+    try {
+      await shoppingStore.add({
+        name: suggestion.name,
+        cat: suggestion.cat,
+        qty: 1,
+        productId: suggestion.productId,
+        auto: true,
+      });
+    } catch {
+      showToast('Kunne ikke legge til forslaget. Prøv igjen.', 'error');
+    }
+  };
+
+  const remove = (id: string) => {
+    shoppingStore.remove(id).catch(() => {
+      showToast('Kunne ikke fjerne varen. Prøv igjen.', 'error');
+    });
+  };
+
+  const setQty = (id: string, qty: number) => {
+    shoppingStore.setQty(id, qty).catch(() => {
+      showToast('Kunne ikke endre antallet. Prøv igjen.', 'error');
+    });
+  };
+
+  const clearDone = () => {
+    shoppingStore.clearDone().catch(() => {
+      showToast('Kunne ikke tømme ferdige varer. Prøv igjen.', 'error');
+    });
   };
 
   return (
@@ -151,12 +191,12 @@ export function ShoppingScreen() {
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }}
             placeholder="Legg til vare…"
             style={{ flex: 1, border: 'none', outline: 'none', background: 'none', fontFamily: 'var(--font)', fontSize: 14.5, color: 'var(--ink)', padding: '11px 0' }}
           />
           {draft.trim() && (
-            <Press onClick={submit} style={{ padding: '9px 15px', borderRadius: 999, background: 'var(--primary)', color: 'var(--on-primary)', fontSize: 13, fontWeight: 800 }}>
+            <Press onClick={() => void submit()} style={{ padding: '9px 15px', borderRadius: 999, background: 'var(--primary)', color: 'var(--on-primary)', fontSize: 13, fontWeight: 800 }}>
               Legg til
             </Press>
           )}
@@ -189,7 +229,7 @@ export function ShoppingScreen() {
                     <p style={{ margin: '1px 0 0', fontSize: 11.5, color: 'var(--ink-3)' }}>{CATEGORIES[s.cat as CategoryId]?.label}</p>
                   </div>
                   <Press
-                    onClick={() => shoppingStore.add({ name: s.name, cat: s.cat, qty: 1, productId: s.productId, auto: true })}
+                    onClick={() => void addSuggestion(s)}
                     style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--primary-tint)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     <IconPlus size={17} />
@@ -210,9 +250,9 @@ export function ShoppingScreen() {
                 <ShopRow
                   key={it.id}
                   it={it}
-                  onToggle={() => toggle(it)}
-                  onRemove={() => shoppingStore.remove(it.id)}
-                  onQty={(n) => shoppingStore.setQty(it.id, n)}
+                  onToggle={() => void toggle(it)}
+                  onRemove={() => remove(it.id)}
+                  onQty={(n) => setQty(it.id, n)}
                 />
               ))}
             </Card>
@@ -226,7 +266,7 @@ export function ShoppingScreen() {
               <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>I kurven · {done.length}</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <Press onClick={() => setBulkOpen(true)} style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)' }}>Legg til lager</Press>
-                <Press onClick={() => shoppingStore.clearDone()} style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)' }}>Tøm</Press>
+                <Press onClick={clearDone} style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)' }}>Tøm</Press>
               </div>
             </div>
             <Card pad={4} style={{ padding: '2px 14px', opacity: 0.85 }}>
@@ -234,9 +274,9 @@ export function ShoppingScreen() {
                 <ShopRow
                   key={it.id}
                   it={it}
-                  onToggle={() => toggle(it)}
-                  onRemove={() => shoppingStore.remove(it.id)}
-                  onQty={(n) => shoppingStore.setQty(it.id, n)}
+                  onToggle={() => void toggle(it)}
+                  onRemove={() => remove(it.id)}
+                  onQty={(n) => setQty(it.id, n)}
                 />
               ))}
             </Card>

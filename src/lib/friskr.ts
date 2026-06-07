@@ -111,7 +111,7 @@ export function countsOf(items: StockItem[]) {
 }
 
 export interface SavePayload {
-  product: Product; qty: number; loc: string; off: number;
+  product: Product; qty: number; loc: string; off: number | null;
   note?: string | null; price?: number | null; editId?: string | null;
   frozen?: boolean; bestForOff?: number | null; thawed?: boolean;
   reminderDaysBefore?: number | null;
@@ -119,11 +119,15 @@ export interface SavePayload {
 
 export async function saveStock(_householdId: string, p: SavePayload): Promise<void> {
   const cat = p.product.cat;
-  let expiryDate: string;
+  let expiryDate: string | null;
   let bestForDate: string | null;
   let frozen: boolean;
 
-  if (p.frozen) {
+  if (p.off == null) {
+    frozen = !!p.frozen;
+    expiryDate = null;
+    bestForDate = null;
+  } else if (p.frozen) {
     frozen = true;
     expiryDate = isoDateInDays(p.off != null && p.editId ? p.off : freezerDaysFor(cat));
     bestForDate = isoDateInDays(p.bestForOff ?? p.off);

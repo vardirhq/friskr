@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, or, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { shoppingListItems } from '../db/schema.js';
+import { categories, products, shoppingListItems } from '../db/schema.js';
 import { broadcastChange } from '../plugins/notify.js';
+import { optionalBoolean, optionalText, positiveInteger } from '../lib/validation.js';
 
 function mapItem(r: Record<string, unknown>) {
   return {
@@ -57,17 +58,43 @@ export async function shoppingRoutes(app: FastifyInstance) {
     if (!householdId) return reply.code(403).send({ error: 'Join a household first', code: 'FORBIDDEN' });
 
     const { name, cat, qty, productId, auto } = (req.body ?? {}) as Record<string, unknown>;
-    if (!name) return reply.code(400).send({ error: 'name required', code: 'INVALID_INPUT' });
+    let parsedName: string | null;
+    let parsedQty: number;
+    let parsedAuto: boolean | undefined;
+    let parsedCategory: string;
+    try {
+      parsedName = optionalText(name, 200);
+      parsedQty = qty == null ? 1 : positiveInteger(qty);
+      parsedAuto = optionalBoolean(auto);
+      parsedCategory = optionalText(cat, 50) ?? 'annet';
+    } catch {
+      return reply.code(400).send({ error: 'Invalid shopping item values', code: 'INVALID_INPUT' });
+    }
+    if (!parsedName) return reply.code(400).send({ error: 'name required', code: 'INVALID_INPUT' });
+
+    const [category] = await db.select({ id: categories.id }).from(categories)
+      .where(eq(categories.id, parsedCategory)).limit(1);
+    if (!category) return reply.code(400).send({ error: 'Invalid category', code: 'INVALID_INPUT' });
+
+    const parsedProductId = productId == null ? null : String(productId);
+    if (parsedProductId) {
+      const [product] = await db.select({ id: products.id }).from(products).where(and(
+        eq(products.id, parsedProductId),
+        isNull(products.archivedAt),
+        or(isNull(products.householdId), eq(products.householdId, householdId)),
+      )).limit(1);
+      if (!product) return reply.code(400).send({ error: 'Invalid product', code: 'INVALID_INPUT' });
+    }
 
     const [item] = await db
       .insert(shoppingListItems)
       .values({
         householdId,
-        productId: (productId as string) ?? null,
-        name: name as string,
-        cat: (cat as string) ?? 'annet',
-        qty: qty != null ? Number(qty) : 1,
-        auto: (auto as boolean) ?? false,
+        productId: parsedProductId,
+        name: parsedName,
+        cat: parsedCategory,
+        qty: parsedQty,
+        auto: parsedAuto ?? false,
         addedBy: userId,
       })
       .returning();
@@ -108,13 +135,22 @@ export async function shoppingRoutes(app: FastifyInstance) {
       .limit(1);
     if (!existing[0]) return reply.code(404).send({ error: 'Not found', code: 'NOT_FOUND' });
 
+    let parsedDone: boolean | undefined;
+    let parsedQty: number | undefined;
+    try {
+      parsedDone = optionalBoolean(done);
+      if (qty != null) parsedQty = positiveInteger(qty);
+    } catch {
+      return reply.code(400).send({ error: 'Invalid shopping item values', code: 'INVALID_INPUT' });
+    }
+
     await db.update(shoppingListItems).set({
-      ...(done !== undefined && {
-        done: done as boolean,
-        doneAt: done ? new Date() : null,
+      ...(parsedDone !== undefined && {
+        done: parsedDone,
+        doneAt: parsedDone ? new Date() : null,
       }),
-      ...(qty != null && { qty: Number(qty) }),
-    }).where(eq(shoppingListItems.id, id));
+      ...(parsedQty !== undefined && { qty: parsedQty }),
+    }).where(and(eq(shoppingListItems.id, id), eq(shoppingListItems.householdId, householdId)));
 
     broadcastChange(householdId);
     return { ok: true };

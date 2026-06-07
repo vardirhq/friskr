@@ -3,6 +3,13 @@ import { and, eq, isNull, or, count } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { locations, stockItems } from '../db/schema.js';
 import { randomBytes } from 'node:crypto';
+import { optionalBoolean, optionalText } from '../lib/validation.js';
+
+function hueValue(value: unknown): number {
+  const hue = Number(value);
+  if (!Number.isInteger(hue) || hue < 0 || hue > 360) throw new Error('INVALID_HUE');
+  return hue;
+}
 
 export async function locationsRoutes(app: FastifyInstance) {
   app.get('/locations', { preHandler: app.requireAuth }, async (req) => {
@@ -17,17 +24,29 @@ export async function locationsRoutes(app: FastifyInstance) {
     if (!householdId) return reply.code(403).send({ error: 'Join a household first', code: 'FORBIDDEN' });
 
     const { label, icon, hue, freezer } = (req.body ?? {}) as Record<string, unknown>;
-    if (!label || !icon) {
+    let cleanLabel: string | null;
+    let cleanIcon: string | null;
+    let cleanHue: number;
+    let cleanFreezer: boolean | undefined;
+    try {
+      cleanLabel = optionalText(label, 100);
+      cleanIcon = optionalText(icon, 100);
+      cleanHue = hue == null ? 160 : hueValue(hue);
+      cleanFreezer = optionalBoolean(freezer);
+    } catch {
+      return reply.code(400).send({ error: 'Invalid location values', code: 'INVALID_INPUT' });
+    }
+    if (!cleanLabel || !cleanIcon) {
       return reply.code(400).send({ error: 'label and icon required', code: 'INVALID_INPUT' });
     }
 
     const id = `custom-${randomBytes(4).toString('hex')}`;
     const [loc] = await db.insert(locations).values({
       id,
-      label: label as string,
-      icon: icon as string,
-      hue: hue != null ? Number(hue) : 160,
-      freezer: (freezer as boolean) ?? false,
+      label: cleanLabel,
+      icon: cleanIcon,
+      hue: cleanHue,
+      freezer: cleanFreezer ?? false,
       householdId,
     }).returning();
 
@@ -44,12 +63,27 @@ export async function locationsRoutes(app: FastifyInstance) {
     if (!existing[0]) return reply.code(404).send({ error: 'Not found', code: 'NOT_FOUND' });
 
     const { label, icon, hue, freezer } = (req.body ?? {}) as Record<string, unknown>;
+    let cleanLabel: string | null | undefined;
+    let cleanIcon: string | null | undefined;
+    let cleanHue: number | undefined;
+    let cleanFreezer: boolean | undefined;
+    try {
+      cleanLabel = label !== undefined ? optionalText(label, 100) : undefined;
+      cleanIcon = icon !== undefined ? optionalText(icon, 100) : undefined;
+      cleanHue = hue !== undefined ? hueValue(hue) : undefined;
+      cleanFreezer = optionalBoolean(freezer);
+    } catch {
+      return reply.code(400).send({ error: 'Invalid location values', code: 'INVALID_INPUT' });
+    }
+    if (cleanLabel === null || cleanIcon === null) {
+      return reply.code(400).send({ error: 'label and icon cannot be empty', code: 'INVALID_INPUT' });
+    }
     await db.update(locations).set({
-      ...(label != null && { label: label as string }),
-      ...(icon != null && { icon: icon as string }),
-      ...(hue != null && { hue: Number(hue) }),
-      ...(freezer != null && { freezer: freezer as boolean }),
-    }).where(eq(locations.id, id));
+      ...(cleanLabel !== undefined && { label: cleanLabel }),
+      ...(cleanIcon !== undefined && { icon: cleanIcon }),
+      ...(cleanHue !== undefined && { hue: cleanHue }),
+      ...(cleanFreezer !== undefined && { freezer: cleanFreezer }),
+    }).where(and(eq(locations.id, id), eq(locations.householdId, householdId ?? '')));
 
     const [updated] = await db.select().from(locations).where(eq(locations.id, id));
     return updated;

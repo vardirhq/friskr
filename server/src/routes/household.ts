@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { eq, and, isNull, gt } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { households, householdMembers, householdInvites, users } from '../db/schema.js';
+import { households, householdMembers, householdInvites, users, refreshTokens } from '../db/schema.js';
 import { sendInviteEmail } from '../lib/email.js';
 
 function generateInviteCode(): string {
@@ -66,12 +66,26 @@ export async function householdRoutes(app: FastifyInstance) {
   app.post('/household', { preHandler: app.requireAuth }, async (req, reply) => {
     const { userId } = req.user;
     const { name, displayName } = (req.body ?? {}) as { name?: string; displayName?: string };
-    if (!name) return reply.code(400).send({ error: 'name required', code: 'INVALID_INPUT' });
+    if (!name?.trim()) return reply.code(400).send({ error: 'name required', code: 'INVALID_INPUT' });
 
-    const inviteCode = generateInviteCode();
-    const [hh] = await db.insert(households).values({ name, inviteCode }).returning();
-    await db.insert(householdMembers).values({
-      householdId: hh.id, userId, role: 'owner', displayName: displayName ?? null,
+    const existingMembership = await db.select({ householdId: householdMembers.householdId })
+      .from(householdMembers)
+      .where(eq(householdMembers.userId, userId))
+      .limit(1);
+    if (existingMembership[0]) {
+      return reply.code(409).send({ error: 'Already in a household', code: 'ALREADY_IN_HOUSEHOLD' });
+    }
+
+    const hh = await db.transaction(async (tx) => {
+      const inviteCode = generateInviteCode();
+      const [household] = await tx.insert(households).values({ name: name.trim(), inviteCode }).returning();
+      await tx.insert(householdMembers).values({
+        householdId: household.id,
+        userId,
+        role: 'owner',
+        displayName: displayName?.trim() || null,
+      });
+      return household;
     });
 
     const jwt = app.jwt.sign({ sub: userId, householdId: hh.id });
@@ -79,7 +93,10 @@ export async function householdRoutes(app: FastifyInstance) {
     return reply.code(201).send({ jwt, household });
   });
 
-  app.post('/household/join', { preHandler: app.requireAuth }, async (req, reply) => {
+  app.post('/household/join', {
+    preHandler: app.requireAuth,
+    config: { rateLimit: { max: process.env.NODE_ENV === 'test' ? 1000 : 10, timeWindow: '10 minutes' } },
+  }, async (req, reply) => {
     const { userId } = req.user;
     const { code, displayName } = (req.body ?? {}) as { code?: string; displayName?: string };
     if (!code) return reply.code(400).send({ error: 'code required', code: 'INVALID_INPUT' });
@@ -87,12 +104,15 @@ export async function householdRoutes(app: FastifyInstance) {
     const [hh] = await db.select().from(households).where(eq(households.inviteCode, code)).limit(1);
     if (!hh) return reply.code(404).send({ error: 'Invalid invite code', code: 'NOT_FOUND' });
 
-    const alreadyMember = await db
+    const currentMembership = await db
       .select()
       .from(householdMembers)
-      .where(and(eq(householdMembers.householdId, hh.id), eq(householdMembers.userId, userId)))
+      .where(eq(householdMembers.userId, userId))
       .limit(1);
-    if (!alreadyMember[0]) {
+    if (currentMembership[0] && currentMembership[0].householdId !== hh.id) {
+      return reply.code(409).send({ error: 'Already in a household', code: 'ALREADY_IN_HOUSEHOLD' });
+    }
+    if (!currentMembership[0]) {
       await db.insert(householdMembers).values({
         householdId: hh.id, userId, role: 'member', displayName: displayName ?? null,
       });
@@ -116,7 +136,10 @@ export async function householdRoutes(app: FastifyInstance) {
   });
 
   // POST /household/invite — send an email invite
-  app.post('/household/invite', { preHandler: app.requireAuth }, async (req, reply) => {
+  app.post('/household/invite', {
+    preHandler: app.requireAuth,
+    config: { rateLimit: { max: process.env.NODE_ENV === 'test' ? 1000 : 10, timeWindow: '1 hour' } },
+  }, async (req, reply) => {
     const { userId, householdId } = req.user;
     if (!householdId) return reply.code(403).send({ error: 'Not in a household', code: 'FORBIDDEN' });
 
@@ -236,27 +259,29 @@ export async function householdRoutes(app: FastifyInstance) {
     const self = members.find(m => m.userId === userId);
     if (!self) return reply.code(403).send({ error: 'Not a member', code: 'FORBIDDEN' });
 
-    if (members.length === 1) {
-      // only member — delete the household (cascade removes members/invites)
-      await db.delete(households).where(eq(households.id, householdId));
-    } else {
-      if (self.role === 'owner') {
-        // transfer ownership to oldest non-self member
-        const newOwner = members.find((m) => m.userId !== userId);
-        if (newOwner) {
-          await db
-            .update(householdMembers)
-            .set({ role: 'owner' })
-            .where(eq(householdMembers.id, newOwner.id));
+    await db.transaction(async (tx) => {
+      if (members.length === 1) {
+        // only member — delete the household (cascade removes members/invites)
+        await tx.delete(households).where(eq(households.id, householdId));
+      } else {
+        if (self.role === 'owner') {
+          // transfer ownership to oldest non-self member
+          const newOwner = members.find((m) => m.userId !== userId);
+          if (newOwner) {
+            await tx
+              .update(householdMembers)
+              .set({ role: 'owner' })
+              .where(eq(householdMembers.id, newOwner.id));
+          }
         }
+        await tx
+          .delete(householdMembers)
+          .where(and(
+            eq(householdMembers.householdId, householdId),
+            eq(householdMembers.userId, userId),
+          ));
       }
-      await db
-        .delete(householdMembers)
-        .where(and(
-          eq(householdMembers.householdId, householdId),
-          eq(householdMembers.userId, userId),
-        ));
-    }
+    });
 
     const jwt = app.jwt.sign({ sub: userId, householdId: null });
     return { jwt };
@@ -303,12 +328,17 @@ export async function householdRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: 'Cannot kick an owner', code: 'FORBIDDEN' });
     }
 
-    await db
-      .delete(householdMembers)
-      .where(and(
-        eq(householdMembers.householdId, householdId),
-        eq(householdMembers.userId, targetUserId),
-      ));
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(householdMembers)
+        .where(and(
+          eq(householdMembers.householdId, householdId),
+          eq(householdMembers.userId, targetUserId),
+        ));
+      await tx.update(refreshTokens)
+        .set({ revoked: true })
+        .where(eq(refreshTokens.userId, targetUserId));
+    });
 
     return { ok: true };
   });

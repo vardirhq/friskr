@@ -220,6 +220,12 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
         const frame = await CameraPreview.capture({ quality: 95 });
         const recognized = await ExpiryTextRecognizer.recognize({ base64: frame.value });
         result = readDateFromText(recognized.text);
+        if (!result.date) {
+          await new Promise((resolve) => setTimeout(resolve, 180));
+          const retryFrame = await CameraPreview.capture({ quality: 95 });
+          const retry = await ExpiryTextRecognizer.recognize({ base64: retryFrame.value });
+          result = readDateFromText(`${recognized.text}\n${retry.text}`);
+        }
       } else {
         if (!videoRef.current || !streamRef.current) throw new Error('Camera stream is not ready');
         result = await readDateFromVideo(videoRef.current);

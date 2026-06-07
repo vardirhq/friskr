@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { createTestApp, cleanDb } from './helpers.js';
 import { db } from '../db/client.js';
 import { users } from '../db/schema.js';
@@ -8,8 +8,11 @@ let app: FastifyInstance;
 let jwtNoHousehold: string;
 
 beforeAll(async () => {
-  await cleanDb();
   app = await createTestApp();
+});
+
+beforeEach(async () => {
+  await cleanDb();
   const [user] = await db.insert(users).values({ email: 'hh@example.com' }).returning();
   jwtNoHousehold = app.jwt.sign({ sub: user.id, householdId: null });
 });
@@ -30,6 +33,21 @@ describe('POST /api/household', () => {
     expect(body.household.code).toMatch(/^FRISK-/);
     const payload = app.jwt.decode<{ sub: string; householdId: string }>(body.jwt);
     expect(payload?.householdId).toBeDefined();
+  });
+
+  it('rejects creating a second household', async () => {
+    await app.inject({
+      method: 'POST', url: '/api/household',
+      headers: { authorization: `Bearer ${jwtNoHousehold}` },
+      payload: { name: 'First' },
+    });
+    const res = await app.inject({
+      method: 'POST', url: '/api/household',
+      headers: { authorization: `Bearer ${jwtNoHousehold}` },
+      payload: { name: 'Second' },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().code).toBe('ALREADY_IN_HOUSEHOLD');
   });
 });
 

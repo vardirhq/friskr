@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  app:
+    name: App
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      - run: npm audit --omit=dev
+
+  server:
+    name: Server
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: friskr
+          POSTGRES_PASSWORD: friskr
+          POSTGRES_DB: friskr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U friskr -d friskr_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://friskr:friskr@localhost:5432/friskr_test
+      TEST_DATABASE_URL: postgres://friskr:friskr@localhost:5432/friskr_test
+      JWT_SECRET: ci-test-jwt-secret
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+        working-directory: server
+
+      - run: psql "$DATABASE_URL" -c 'create extension if not exists pgcrypto;'
+
+      - run: npm run migrate
+        working-directory: server
+
+      - run: npm run build
+        working-directory: server
+
+      - run: npm test
+        working-directory: server
+
+      - run: npm audit --omit=dev
+        working-directory: server

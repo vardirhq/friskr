@@ -6,12 +6,13 @@ function setTokens(jwt: string, refreshToken: string) {
   localStorage.setItem('friskr_jwt', jwt);
   localStorage.setItem('friskr_refresh', refreshToken);
 }
+let refreshPromise: Promise<boolean> | null = null;
 export function clearTokens() {
   localStorage.removeItem('friskr_jwt');
   localStorage.removeItem('friskr_refresh');
 }
 
-async function tryRefresh(): Promise<boolean> {
+async function performRefresh(): Promise<boolean> {
   const refreshToken = getRefresh();
   if (!refreshToken) return false;
   const res = await fetch(`${BASE}/auth/refresh`, {
@@ -23,6 +24,15 @@ async function tryRefresh(): Promise<boolean> {
   const data = await res.json();
   setTokens(data.jwt, data.refreshToken);
   return true;
+}
+
+async function tryRefresh(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = performRefresh().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
 }
 
 async function request(method: string, path: string, body?: unknown, retry = true): Promise<Response> {

@@ -49,19 +49,52 @@ public class ExpiryTextRecognizerPlugin extends Plugin {
                 return;
             }
 
-            recognizer.process(InputImage.fromBitmap(bitmap, 0))
+            Bitmap scanBitmap = cropToDateReticle(bitmap);
+            recognizer.process(InputImage.fromBitmap(scanBitmap, 0))
                 .addOnSuccessListener(result -> {
                     JSObject response = new JSObject();
                     response.put("text", result.getText());
                     call.resolve(response);
+                    if (scanBitmap != bitmap) {
+                        scanBitmap.recycle();
+                    }
                     bitmap.recycle();
                 })
                 .addOnFailureListener(error -> {
+                    if (scanBitmap != bitmap) {
+                        scanBitmap.recycle();
+                    }
                     bitmap.recycle();
                     call.reject("Text recognition failed", error);
                 });
         } catch (Exception error) {
             call.reject("Could not process image", error);
+        }
+    }
+
+    private Bitmap cropToDateReticle(Bitmap bitmap) {
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        if (width <= 0 || height <= 0) {
+            return bitmap;
+        }
+
+        int cropWidth = Math.max(1, Math.round(width * 0.72f));
+        int cropHeight = Math.max(1, Math.round(height * 0.36f));
+        int x = Math.max(0, (width - cropWidth) / 2);
+        int centerY = Math.round(height * 0.38f);
+        int y = Math.max(0, Math.min(height - cropHeight, centerY - (cropHeight / 2)));
+
+        try {
+            return Bitmap.createBitmap(
+                bitmap,
+                x,
+                y,
+                Math.min(cropWidth, width - x),
+                Math.min(cropHeight, height - y)
+            );
+        } catch (Exception ignored) {
+            return bitmap;
         }
     }
 }

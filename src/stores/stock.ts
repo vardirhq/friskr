@@ -44,20 +44,32 @@ export const useStockStore = create<StockStore>((set, get) => ({
   },
 
   async consume(_householdId, item) {
+    const previous = get().items;
     // optimistic
     set((s) => {
       const items = s.items.filter((i) => i.id !== item.id);
       return { items, counts: countsOf(items) };
     });
-    await consumeStock(item.id);
+    try {
+      await consumeStock(item.id);
+    } catch (error) {
+      set({ items: previous, counts: countsOf(previous) });
+      throw error;
+    }
   },
 
   async discard(_householdId, item) {
+    const previous = get().items;
     set((s) => {
       const items = s.items.filter((i) => i.id !== item.id);
       return { items, counts: countsOf(items) };
     });
-    await discardStock(item.id);
+    try {
+      await discardStock(item.id);
+    } catch (error) {
+      set({ items: previous, counts: countsOf(previous) });
+      throw error;
+    }
   },
 
   async restore(householdId, id) {

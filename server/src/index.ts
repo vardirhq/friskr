@@ -3,6 +3,7 @@ import Fastify, { type FastifyServerOptions } from 'fastify';
 import { corsPlugin } from './plugins/cors.js';
 import { jwtAuthPlugin } from './plugins/jwt.js';
 import { notifyPlugin } from './plugins/notify.js';
+import { rateLimitPlugin } from './plugins/rate-limit.js';
 import { authRoutes } from './routes/auth.js';
 import { stockRoutes } from './routes/stock.js';
 import { productsRoutes } from './routes/products.js';
@@ -16,6 +17,7 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
   const app = Fastify(opts);
 
   await app.register(corsPlugin);
+  await app.register(rateLimitPlugin);
   await app.register(jwtAuthPlugin);
   await app.register(notifyPlugin);
   await app.register(authRoutes);
@@ -34,6 +36,6 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
 
 const isMain = process.argv[1]?.endsWith('index.ts') || process.argv[1]?.endsWith('index.js');
 if (isMain) {
-  const app = await buildApp({ logger: { level: 'info' } });
+  const app = await buildApp({ logger: { level: 'info' }, trustProxy: true });
   await app.listen({ port: Number(process.env.PORT ?? 3001), host: '0.0.0.0' });
 }

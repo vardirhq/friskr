@@ -50,24 +50,48 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
   },
 
   async toggle(id, done) {
+    const previous = get().items;
     // optimistic
     set((s) => ({ items: s.items.map((i) => i.id === id ? { ...i, done } : i) }));
-    await updateShoppingItem(id, { done });
+    try {
+      await updateShoppingItem(id, { done });
+    } catch (error) {
+      set({ items: previous });
+      throw error;
+    }
   },
 
   async setQty(id, qty) {
+    const previous = get().items;
     set((s) => ({ items: s.items.map((i) => i.id === id ? { ...i, qty } : i) }));
-    await updateShoppingItem(id, { qty });
+    try {
+      await updateShoppingItem(id, { qty });
+    } catch (error) {
+      set({ items: previous });
+      throw error;
+    }
   },
 
   async remove(id) {
+    const previous = get().items;
     set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
-    await deleteShoppingItem(id);
+    try {
+      await deleteShoppingItem(id);
+    } catch (error) {
+      set({ items: previous });
+      throw error;
+    }
   },
 
   async clearDone() {
+    const previous = get().items;
     set((s) => ({ items: s.items.filter((i) => !i.done) }));
-    await clearDoneShoppingItems();
+    try {
+      await clearDoneShoppingItems();
+    } catch (error) {
+      set({ items: previous });
+      throw error;
+    }
   },
 
   subscribeRealtime(householdId) {

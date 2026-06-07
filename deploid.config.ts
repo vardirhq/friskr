@@ -12,10 +12,10 @@ export default {
   },
   android: {
     packaging: 'capacitor',
-    targetSdk: 34,
+    targetSdk: 36,
     minSdk: 24,
     permissions: ['INTERNET'],
-    version: { code: 1, name: '1.0.0' },
+    version: { code: 2, name: '2.0.0' },
     display: {
       fullscreen: false,
       orientation: 'portrait',
@@ -32,6 +32,6 @@ export default {
     output: 'assets-gen/',
   },
   publish: {
-    github: { repo: 'your-username/your-repo', draft: true },
+    github: { repo: 'MadsenDev/friskr', draft: true },
   },
 };

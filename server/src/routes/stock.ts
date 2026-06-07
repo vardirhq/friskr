@@ -2,6 +2,13 @@ import type { FastifyInstance } from 'fastify';
 import { and, eq, isNull, or, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { locations, products, stockItems } from '../db/schema.js';
+import {
+  optionalBoolean,
+  optionalIsoDate,
+  optionalMoney,
+  optionalText,
+  positiveNumber,
+} from '../lib/validation.js';
 
 function mapRow(r: Record<string, unknown>) {
   return {
@@ -72,8 +79,21 @@ export async function stockRoutes(app: FastifyInstance) {
     if (!productId || !locationId || quantity == null) {
       return reply.code(400).send({ error: 'productId, locationId, quantity required', code: 'INVALID_INPUT' });
     }
-    if (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0) {
-      return reply.code(400).send({ error: 'quantity must be greater than zero', code: 'INVALID_INPUT' });
+    let parsedQuantity: number;
+    let parsedExpiryDate: string | null;
+    let parsedBestForDate: string | null;
+    let parsedFrozen: boolean | undefined;
+    let parsedPrice: number | null;
+    let parsedNote: string | null;
+    try {
+      parsedQuantity = positiveNumber(quantity);
+      parsedExpiryDate = optionalIsoDate(expiryDate);
+      parsedBestForDate = optionalIsoDate(bestForDate);
+      parsedFrozen = optionalBoolean(frozen);
+      parsedPrice = optionalMoney(priceNok);
+      parsedNote = optionalText(note, 1000);
+    } catch {
+      return reply.code(400).send({ error: 'Invalid stock item values', code: 'INVALID_INPUT' });
     }
 
     const [[product], [location]] = await Promise.all([
@@ -104,12 +124,12 @@ export async function stockRoutes(app: FastifyInstance) {
         householdId,
         productId: productId as string,
         locationId: locationId as string,
-        quantity: String(quantity),
-        expiryDate: (expiryDate as string) ?? null,
-        frozen: (frozen as boolean) ?? false,
-        bestForDate: (bestForDate as string) ?? null,
-        note: (note as string) ?? null,
-        priceNok: priceNok != null ? String(priceNok) : null,
+        quantity: String(parsedQuantity),
+        expiryDate: parsedExpiryDate,
+        frozen: parsedFrozen ?? false,
+        bestForDate: parsedBestForDate,
+        note: parsedNote,
+        priceNok: parsedPrice != null ? String(parsedPrice) : null,
         reminderDaysBefore: reminder,
         addedBy: userId,
       })
@@ -154,8 +174,21 @@ export async function stockRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: 'reminderDaysBefore must be null or an integer from -1 to 14', code: 'INVALID_INPUT' });
       }
     }
-    if (quantity != null && (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0)) {
-      return reply.code(400).send({ error: 'quantity must be greater than zero', code: 'INVALID_INPUT' });
+    let parsedQuantity: number | undefined;
+    let parsedExpiryDate: string | null | undefined;
+    let parsedBestForDate: string | null | undefined;
+    let parsedFrozen: boolean | undefined;
+    let parsedPrice: number | null | undefined;
+    let parsedNote: string | null | undefined;
+    try {
+      if (quantity != null) parsedQuantity = positiveNumber(quantity);
+      if (expiryDate !== undefined) parsedExpiryDate = optionalIsoDate(expiryDate);
+      if (bestForDate !== undefined) parsedBestForDate = optionalIsoDate(bestForDate);
+      parsedFrozen = optionalBoolean(frozen);
+      if (priceNok !== undefined) parsedPrice = optionalMoney(priceNok);
+      if (note !== undefined) parsedNote = optionalText(note, 1000);
+    } catch {
+      return reply.code(400).send({ error: 'Invalid stock item values', code: 'INVALID_INPUT' });
     }
     if (locationId != null) {
       const [location] = await db.select({ id: locations.id }).from(locations).where(and(
@@ -167,14 +200,14 @@ export async function stockRoutes(app: FastifyInstance) {
 
     await db.update(stockItems).set({
       ...(locationId != null && { locationId: locationId as string }),
-      ...(quantity != null && { quantity: String(quantity) }),
-      ...(expiryDate !== undefined && { expiryDate: expiryDate as string }),
-      ...(frozen != null && { frozen: frozen as boolean }),
-      ...(bestForDate !== undefined && { bestForDate: bestForDate as string }),
-      ...(note !== undefined && { note: note as string }),
-      ...(priceNok !== undefined && { priceNok: priceNok != null ? String(priceNok) : null }),
+      ...(parsedQuantity !== undefined && { quantity: String(parsedQuantity) }),
+      ...(parsedExpiryDate !== undefined && { expiryDate: parsedExpiryDate }),
+      ...(parsedFrozen !== undefined && { frozen: parsedFrozen }),
+      ...(parsedBestForDate !== undefined && { bestForDate: parsedBestForDate }),
+      ...(parsedNote !== undefined && { note: parsedNote }),
+      ...(parsedPrice !== undefined && { priceNok: parsedPrice != null ? String(parsedPrice) : null }),
       ...(reminderDaysBefore !== undefined && { reminderDaysBefore: reminder }),
-    }).where(eq(stockItems.id, id));
+    }).where(and(eq(stockItems.id, id), eq(stockItems.householdId, householdId)));
 
     const rows = await db.execute(sql`
       select si.*,
@@ -214,7 +247,7 @@ export async function stockRoutes(app: FastifyInstance) {
         await db.update(stockItems).set({
           status,
           resolvedAt: status === 'in_stock' ? null : new Date(),
-        }).where(eq(stockItems.id, id));
+        }).where(and(eq(stockItems.id, id), eq(stockItems.householdId, householdId!)));
         return { ok: true };
       },
     });

@@ -49,4 +49,14 @@ describe('POST /api/products', () => {
     expect(body.shelf).toBe(7);
     expect(body.householdId).toBe(householdId);
   });
+
+  it('rejects invalid product values', async () => {
+    const res = await app.inject({
+      method: 'POST', url: '/api/products',
+      headers: { authorization: `Bearer ${jwt}` },
+      payload: { name: 'x'.repeat(201), cat: 'meieri', barcode: 'bad barcode!' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_INPUT');
+  });
 });

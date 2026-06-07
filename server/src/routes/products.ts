@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { and, count, eq, isNull, or } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { categories, products, shoppingListItems, stockItems } from '../db/schema.js';
+import { optionalText } from '../lib/validation.js';
 
 function mapProduct(product: typeof products.$inferSelect) {
   return {
@@ -16,17 +17,17 @@ function mapProduct(product: typeof products.$inferSelect) {
   };
 }
 
-function optionalText(value: unknown): string | null {
-  if (value == null) return null;
-  const text = String(value).trim();
-  return text || null;
-}
-
 function shelfDays(value: unknown): number | null {
   if (value == null || value === '') return null;
   const days = Number(value);
   if (!Number.isInteger(days) || days < 0 || days > 3650) throw new Error('INVALID_SHELF');
   return days;
+}
+
+function barcodeValue(value: unknown): string | null {
+  const barcode = optionalText(value, 64);
+  if (barcode && !/^[A-Za-z0-9._-]+$/.test(barcode)) throw new Error('INVALID_BARCODE');
+  return barcode;
 }
 
 export async function productsRoutes(app: FastifyInstance) {
@@ -50,8 +51,18 @@ export async function productsRoutes(app: FastifyInstance) {
     if (!householdId) return reply.code(403).send({ error: 'Join a household first', code: 'FORBIDDEN' });
 
     const { name, brand, cat, shelf, barcode } = (req.body ?? {}) as Record<string, unknown>;
-    const cleanName = optionalText(name);
-    const cleanCat = optionalText(cat);
+    let cleanName: string | null;
+    let cleanBrand: string | null;
+    let cleanCat: string | null;
+    let cleanBarcode: string | null;
+    try {
+      cleanName = optionalText(name, 200);
+      cleanBrand = optionalText(brand, 200);
+      cleanCat = optionalText(cat, 50);
+      cleanBarcode = barcodeValue(barcode);
+    } catch {
+      return reply.code(400).send({ error: 'Invalid product values', code: 'INVALID_INPUT' });
+    }
     if (!cleanName || !cleanCat) {
       return reply.code(400).send({ error: 'name and cat required', code: 'INVALID_INPUT' });
     }
@@ -68,10 +79,10 @@ export async function productsRoutes(app: FastifyInstance) {
     const [product] = await db.insert(products).values({
       householdId,
       name: cleanName,
-      brand: optionalText(brand) ?? '',
+      brand: cleanBrand ?? '',
       categoryId: cleanCat,
       defaultShelfDays: parsedShelf,
-      barcode: optionalText(barcode),
+      barcode: cleanBarcode,
     }).returning();
 
     return reply.code(201).send(mapProduct(product));
@@ -88,8 +99,18 @@ export async function productsRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: 'Not found', code: 'NOT_FOUND' });
 
     const { name, brand, cat, shelf, barcode } = (req.body ?? {}) as Record<string, unknown>;
-    const cleanName = name !== undefined ? optionalText(name) : undefined;
-    const cleanCat = cat !== undefined ? optionalText(cat) : undefined;
+    let cleanName: string | null | undefined;
+    let cleanBrand: string | null | undefined;
+    let cleanCat: string | null | undefined;
+    let cleanBarcode: string | null | undefined;
+    try {
+      cleanName = name !== undefined ? optionalText(name, 200) : undefined;
+      cleanBrand = brand !== undefined ? optionalText(brand, 200) : undefined;
+      cleanCat = cat !== undefined ? optionalText(cat, 50) : undefined;
+      cleanBarcode = barcode !== undefined ? barcodeValue(barcode) : undefined;
+    } catch {
+      return reply.code(400).send({ error: 'Invalid product values', code: 'INVALID_INPUT' });
+    }
     if (cleanName === null || cleanCat === null) {
       return reply.code(400).send({ error: 'name and cat cannot be empty', code: 'INVALID_INPUT' });
     }
@@ -109,11 +130,11 @@ export async function productsRoutes(app: FastifyInstance) {
 
     const [updated] = await db.update(products).set({
       ...(cleanName !== undefined && { name: cleanName }),
-      ...(brand !== undefined && { brand: optionalText(brand) ?? '' }),
+      ...(cleanBrand !== undefined && { brand: cleanBrand ?? '' }),
       ...(cleanCat !== undefined && { categoryId: cleanCat }),
       ...(shelf !== undefined && { defaultShelfDays: parsedShelf }),
-      ...(barcode !== undefined && { barcode: optionalText(barcode) }),
-    }).where(eq(products.id, id)).returning();
+      ...(cleanBarcode !== undefined && { barcode: cleanBarcode }),
+    }).where(and(eq(products.id, id), eq(products.householdId, householdId))).returning();
 
     return mapProduct(updated);
   });

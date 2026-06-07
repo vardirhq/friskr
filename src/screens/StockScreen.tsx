@@ -164,19 +164,35 @@ export function StockScreen() {
 
   const handleConsume = async (it: StockItem) => {
     if (!household) return;
-    await stockStore.consume(household.id, it);
-    showToast(`${it.product.name} brukt opp`, 'check', {
-      label: 'Angre',
-      onAction: () => stockStore.restore(household.id, it.id),
-    });
+    try {
+      await stockStore.consume(household.id, it);
+      showToast(`${it.product.name} brukt opp`, 'check', {
+        label: 'Angre',
+        onAction: () => {
+          stockStore.restore(household.id, it.id).catch(() => {
+            showToast('Kunne ikke angre. Prøv igjen.', 'error');
+          });
+        },
+      });
+    } catch {
+      showToast('Kunne ikke oppdatere varen. Prøv igjen.', 'error');
+    }
   };
   const handleThrow = async (it: StockItem) => {
     if (!household) return;
-    await stockStore.discard(household.id, it);
-    showToast(`${it.product.name} kastet`, 'trash', {
-      label: 'Angre',
-      onAction: () => stockStore.restore(household.id, it.id),
-    });
+    try {
+      await stockStore.discard(household.id, it);
+      showToast(`${it.product.name} kastet`, 'trash', {
+        label: 'Angre',
+        onAction: () => {
+          stockStore.restore(household.id, it.id).catch(() => {
+            showToast('Kunne ikke angre. Prøv igjen.', 'error');
+          });
+        },
+      });
+    } catch {
+      showToast('Kunne ikke oppdatere varen. Prøv igjen.', 'error');
+    }
   };
 
   const locationGroups = locations.map((meta) => ({

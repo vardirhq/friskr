@@ -25,12 +25,41 @@ describe('GET /api/realtime/household', () => {
   });
 
   it('establishes SSE connection with valid token', async () => {
+    const ticketRes = await app.inject({
+      method: 'POST',
+      url: '/api/realtime/ticket',
+      headers: { authorization: `Bearer ${jwt}` },
+    });
+    expect(ticketRes.statusCode).toBe(200);
+
     const res = await app.inject({
       method: 'GET',
-      url: `/api/realtime/household?token=${jwt}`,
+      url: `/api/realtime/household?ticket=${ticketRes.json().ticket}`,
       payloadAsStream: true,
     });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/event-stream');
+  });
+
+  it('rejects reuse of a realtime ticket', async () => {
+    const ticketRes = await app.inject({
+      method: 'POST',
+      url: '/api/realtime/ticket',
+      headers: { authorization: `Bearer ${jwt}` },
+    });
+    const ticket = ticketRes.json().ticket;
+    const first = await app.inject({
+      method: 'GET',
+      url: `/api/realtime/household?ticket=${ticket}`,
+      payloadAsStream: true,
+    });
+    expect(first.statusCode).toBe(200);
+    first.raw.res.destroy();
+
+    const second = await app.inject({
+      method: 'GET',
+      url: `/api/realtime/household?ticket=${ticket}`,
+    });
+    expect(second.statusCode).toBe(401);
   });
 });

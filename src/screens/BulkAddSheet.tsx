@@ -14,7 +14,7 @@ import { useLocationStore } from '../stores/locations';
 import { ProductEditorSheet } from '../components/ProductEditorSheet';
 
 const EXPIRY_CHIPS = [
-  { label: 'Ingen dato', days: 30 },
+  { label: 'Ingen dato', days: null },
   { label: '+3 d', days: 3 },
   { label: '+1 uke', days: 7 },
   { label: '+2 uker', days: 14 },

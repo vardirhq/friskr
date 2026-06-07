@@ -48,6 +48,16 @@ describe('POST /api/locations', () => {
     expect(body.label).toBe('Bod');
     expect(body.householdId).toBe(householdId);
   });
+
+  it('rejects invalid location values', async () => {
+    const res = await app.inject({
+      method: 'POST', url: '/api/locations',
+      headers: { authorization: `Bearer ${jwt}` },
+      payload: { label: 'Bod', icon: 'locBox', hue: 361, freezer: 'yes' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_INPUT');
+  });
 });
 
 describe('PATCH /api/locations/:id', () => {

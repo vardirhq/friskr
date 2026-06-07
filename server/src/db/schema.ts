@@ -1,6 +1,6 @@
 import {
   pgTable, uuid, text, boolean, timestamp, date,
-  numeric, integer,
+  numeric, integer, uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
@@ -40,7 +40,9 @@ export const householdMembers = pgTable('household_members', {
   displayName: text('display_name'),
   colorHue: integer('color_hue').default(145),
   joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  uniqueIndex('household_members_user_unique_idx').on(table.userId),
+]);
 
 export const householdInvites = pgTable('household_invites', {
   id: uuid('id').primaryKey().defaultRandom(),
