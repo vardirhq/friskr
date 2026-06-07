@@ -25,7 +25,8 @@ export function fmtNO(d: Date): string {
 }
 
 export function fmtShort(d: Date): string {
-  return `${d.getDate()}. ${MONTHS_NB[d.getMonth()]}`;
+  const base = `${d.getDate()}. ${MONTHS_NB[d.getMonth()]}`;
+  return d.getFullYear() !== new Date().getFullYear() ? `${base} ${d.getFullYear()}` : base;
 }
 
 export function statusOf(off: number | null): Urgency {
