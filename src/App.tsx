@@ -163,6 +163,7 @@ export default function App() {
 
   const MAIN_TABS = ['home', 'stock', 'scan', 'products', 'settings'];
   const isSubScreen = !MAIN_TABS.includes(tab);
+  const isScanner = tab === 'scan';
 
   return (
     <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--paper)', overflow: 'hidden' }}>
@@ -170,7 +171,17 @@ export default function App() {
         <ActiveScreen />
       ) : (
         <>
-          <div className="noscroll" style={{ flex: 1, overflowY: 'auto', paddingTop: 'env(safe-area-inset-top)' }}>
+          {!isScanner && (
+            <div
+              aria-hidden
+              style={{
+                height: 'env(safe-area-inset-top)',
+                flexShrink: 0,
+                background: 'var(--paper)',
+              }}
+            />
+          )}
+          <div className="noscroll" style={{ flex: 1, minHeight: 0, overflowY: isScanner ? 'hidden' : 'auto' }}>
             <ActiveScreen />
           </div>
 
