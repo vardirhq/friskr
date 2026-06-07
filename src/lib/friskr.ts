@@ -21,6 +21,13 @@ export interface Member {
 }
 export interface Household { id: string; name: string; code: string; members: Member[] }
 
+export interface Invite {
+  id: string;
+  email: string;
+  sentAt: string;
+  daysAgo: number;
+}
+
 function mapStockRow(r: Record<string, unknown>): StockItem {
   const expiryDate = parseDate(r.expiryDate as string | null);
   const bestForDate = parseDate(r.bestForDate as string | null);
@@ -139,6 +146,26 @@ export async function createHousehold(name: string, displayName?: string) {
   const refresh = localStorage.getItem('friskr_refresh') ?? '';
   setTokens(data.jwt, refresh);
   return data.household;
+}
+
+export async function sendInvite(email: string): Promise<Invite> {
+  return api.post<Invite>('/api/household/invite', { email });
+}
+
+export async function listInvites(): Promise<Invite[]> {
+  return api.get<Invite[]>('/api/household/invites');
+}
+
+export async function withdrawInvite(id: string): Promise<void> {
+  await api.delete(`/api/household/invites/${id}`);
+}
+
+export async function leaveHousehold(): Promise<{ jwt: string }> {
+  return api.delete<{ jwt: string }>('/api/household/leave');
+}
+
+export async function kickMember(userId: string): Promise<void> {
+  await api.delete(`/api/household/members/${userId}`);
 }
 
 export async function joinHousehold(code: string, displayName?: string) {
