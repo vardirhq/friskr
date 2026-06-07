@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { stockItems } from '../db/schema.js';
 
@@ -168,27 +168,91 @@ export async function stockRoutes(app: FastifyInstance) {
   setStatus(app, 'PATCH', '/stock/:id/discard', 'discarded');
   setStatus(app, 'PATCH', '/stock/:id/restore', 'in_stock');
 
-  app.get('/stock/stats', { preHandler: app.requireAuth }, async (req, reply) => {
+  app.get('/stock/stats', { preHandler: app.requireAuth }, async (req) => {
     const { householdId } = req.user;
-    const { since } = req.query as { since?: string };
-    if (!householdId) return { saved: 0, savedKr: 0, wasted: 0 };
-    if (!since) return reply.code(400).send({ error: 'since query param required', code: 'INVALID_INPUT' });
-
-    const rows = await db
-      .select({ status: stockItems.status, quantity: stockItems.quantity, priceNok: stockItems.priceNok })
-      .from(stockItems)
-      .where(and(
-        eq(stockItems.householdId, householdId),
-        gte(stockItems.resolvedAt, new Date(since))
-      ));
-
-    let saved = 0, savedKr = 0, wasted = 0;
-    for (const r of rows) {
-      if (r.status === 'used_up') {
-        saved++;
-        if (r.priceNok) savedKr += Number(r.priceNok) * Number(r.quantity);
-      } else if (r.status === 'discarded') wasted++;
+    if (!householdId) {
+      return {
+        months: [],
+        byCategory: [],
+        totals: { saved: 0, wasted: 0, kr: 0 },
+      };
     }
-    return { saved, savedKr, wasted };
+
+    // Generate the 6 month slots (current month + 5 prior)
+    const now = new Date();
+    const monthSlots: string[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      monthSlots.push(`${yyyy}-${mm}`);
+    }
+
+    // Monthly breakdown query
+    const monthRows = await db.execute(sql`
+      select
+        to_char(date_trunc('month', si.resolved_at), 'YYYY-MM') as month,
+        si.status,
+        count(*)::int                                            as cnt,
+        coalesce(sum(
+          case when si.status = 'used_up'
+            then cast(si.price_nok as float) * cast(si.quantity as float)
+            else 0
+          end
+        ), 0)::float                                            as kr
+      from stock_items si
+      where si.household_id = ${householdId}
+        and si.resolved_at >= now() - interval '6 months'
+        and si.status in ('used_up', 'discarded')
+      group by 1, 2
+      order by 1
+    `);
+
+    // By-category query (discarded only, top 4)
+    const catRows = await db.execute(sql`
+      select
+        p.category_id                as cat,
+        count(*)::int                as wasted
+      from stock_items si
+      join products p on p.id = si.product_id
+      where si.household_id = ${householdId}
+        and si.resolved_at >= now() - interval '6 months'
+        and si.status = 'discarded'
+      group by p.category_id
+      order by wasted desc
+      limit 4
+    `);
+
+    // Build months map from query results
+    type MonthEntry = { month: string; saved: number; wasted: number; kr: number };
+    const monthMap = new Map<string, MonthEntry>();
+    for (const slot of monthSlots) {
+      monthMap.set(slot, { month: slot, saved: 0, wasted: 0, kr: 0 });
+    }
+    for (const r of monthRows) {
+      const row = r as { month: string; status: string; cnt: number; kr: number };
+      const entry = monthMap.get(row.month);
+      if (!entry) continue;
+      if (row.status === 'used_up') {
+        entry.saved += row.cnt;
+        entry.kr += Number(row.kr);
+      } else if (row.status === 'discarded') {
+        entry.wasted += row.cnt;
+      }
+    }
+
+    const months = monthSlots.map((s) => monthMap.get(s)!);
+
+    const totals = months.reduce(
+      (acc, m) => ({ saved: acc.saved + m.saved, wasted: acc.wasted + m.wasted, kr: acc.kr + m.kr }),
+      { saved: 0, wasted: 0, kr: 0 }
+    );
+
+    const byCategory = (catRows as unknown as Array<{ cat: string; wasted: number }>).map((r) => ({
+      cat: r.cat,
+      wasted: Number(r.wasted),
+    }));
+
+    return { months, byCategory, totals };
   });
 }
