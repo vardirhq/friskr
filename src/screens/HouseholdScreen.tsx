@@ -64,6 +64,7 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [sending, setSending] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [copied, setCopied] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -79,10 +80,12 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
   };
 
   const sendInviteHandler = async () => {
+    if (sending) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
       showToast('Ugyldig e-postadresse', 'x');
       return;
     }
+    setSending(true);
     try {
       const inv = await apiSendInvite(inviteEmail);
       setPendingInvites(p => [...p, inv]);
@@ -91,6 +94,8 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
       showToast(code === 'ALREADY_MEMBER' ? 'Allerede medlem' : 'Kunne ikke sende invitasjon', 'x');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -248,7 +253,7 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
                   onChange={e => setInviteEmail(e.target.value)}
                   style={{ flex: 1, fontSize: 14, fontFamily: 'var(--font)', border: '1.5px solid var(--line)', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', padding: '10px 12px', color: 'var(--ink)', outline: 'none', minWidth: 0 }}
                 />
-                <Press onClick={sendInviteHandler} style={{ fontSize: 13.5, fontWeight: 800, padding: '10px 16px', borderRadius: 'var(--r-sm)', background: 'var(--primary)', color: 'var(--on-primary)', flexShrink: 0 }}>Send</Press>
+                <Press onClick={sendInviteHandler} style={{ fontSize: 13.5, fontWeight: 800, padding: '10px 16px', borderRadius: 'var(--r-sm)', background: 'var(--primary)', color: 'var(--on-primary)', flexShrink: 0, opacity: sending ? 0.5 : 1 }}>{sending ? '…' : 'Send'}</Press>
               </div>
             </Card>
 
@@ -267,6 +272,7 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
               </Press>
               <Press
                 onClick={async () => {
+                  if (leaving) return;
                   if (!window.confirm('Er du sikker på at du vil forlate husholdningen?')) return;
                   setLeaving(true);
                   try {
