@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import React from 'react';
+import QRCode from 'qrcode';
 import { useHouseholdStore } from '../stores/household';
 import { useUiStore } from '../stores/ui';
 import { Press } from '../components/Press';
@@ -24,29 +25,23 @@ interface HouseholdScreenProps {
   onClose: () => void;
 }
 
-function FauxQR({ code, size = 132 }: { code: string; size?: number }) {
-  const n = 11, cell = size / n;
-  let seed = 0;
-  for (let i = 0; i < code.length; i++) seed = (seed * 31 + code.charCodeAt(i)) & 0xffff;
-  const rnd = (i: number) => { const x = Math.sin(seed + i * 12.9898) * 43758.5453; return x - Math.floor(x); };
-  const dots: React.JSX.Element[] = [];
-  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
-    const finder = (r < 3 && c < 3) || (r < 3 && c > n - 4) || (r > n - 4 && c < 3);
-    if (finder) continue;
-    if (rnd(r * n + c) > 0.52) dots.push(<rect key={r + '-' + c} x={c * cell} y={r * cell} width={cell} height={cell} rx={cell * 0.22} fill="var(--ink)" />);
-  }
-  const Finder = ({ x, y }: { x: number; y: number }) => (
-    <g transform={`translate(${x},${y})`}>
-      <rect width={cell * 3} height={cell * 3} rx={cell * 0.5} fill="var(--ink)" />
-      <rect x={cell * 0.55} y={cell * 0.55} width={cell * 1.9} height={cell * 1.9} rx={cell * 0.35} fill="var(--surface)" />
-      <rect x={cell * 1.05} y={cell * 1.05} width={cell * 0.9} height={cell * 0.9} rx={cell * 0.2} fill="var(--ink)" />
-    </g>
-  );
+function RealQR({ code, size = 132 }: { code: string; size?: number }) {
+  const [svgString, setSvgString] = useState<string>('');
+
+  useEffect(() => {
+    QRCode.toString(code, { type: 'svg', width: size, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
+      .then(setSvgString)
+      .catch(() => {});
+  }, [code, size]);
+
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block' }}>
-      {dots}
-      <Finder x={0} y={0} /><Finder x={(n - 3) * cell} y={0} /><Finder x={0} y={(n - 3) * cell} />
-    </svg>
+    <div style={{ width: size, height: size }}>
+      {svgString ? (
+        <div dangerouslySetInnerHTML={{ __html: svgString }} />
+      ) : (
+        <div style={{ width: size, height: size }} />
+      )}
+    </div>
   );
 }
 
@@ -110,7 +105,7 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
               <p style={{ margin: '0 0 4px', fontSize: 13.5, fontWeight: 800 }}>Inviter familien</p>
               <p style={{ margin: '0 0 16px', fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.45 }}>Del koden eller QR-en. Den som scanner kobles til det samme delte lageret.</p>
               <div style={{ display: 'inline-flex', padding: 12, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 'var(--r-sm)', marginBottom: 14 }}>
-                <FauxQR code={household.code} />
+                <RealQR code={household.code} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--surface-2)', border: '1px dashed var(--line)', borderRadius: 'var(--r-sm)', padding: '12px 14px', marginBottom: 12 }}>
                 <div style={{ textAlign: 'left' }}>
