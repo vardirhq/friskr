@@ -3,10 +3,20 @@ import QRCode from 'qrcode';
 import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning';
 import { useHouseholdStore } from '../stores/household';
 import { useUiStore } from '../stores/ui';
+import { useAuthStore } from '../stores/auth';
 import { Press } from '../components/Press';
 import { Btn } from '../components/Btn';
 import { Card } from '../components/Card';
 import type { Member } from '../lib/friskr';
+import {
+  sendInvite as apiSendInvite,
+  listInvites,
+  withdrawInvite as apiWithdrawInvite,
+  leaveHousehold,
+  kickMember as apiKickMember,
+  type Invite,
+} from '../lib/friskr';
+import { setTokens } from '../lib/api';
 import {
   IconChevL, IconHome, IconCopy, IconCheck, IconLink,
   IconPhone, IconKey, IconUsers, IconArrowR, IconQr,
@@ -49,24 +59,45 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
   const householdStore = useHouseholdStore();
   const { household } = householdStore;
   const { showToast } = useUiStore();
+  const { user } = useAuthStore();
   const [mode, setMode] = useState<'manage' | 'join'>('manage');
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [copied, setCopied] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [pendingInvites, setPendingInvites] = useState<Array<{ id: string; email: string; sentAt: number }>>([]);
+  const [pendingInvites, setPendingInvites] = useState<Invite[]>([]);
 
-  const withdrawInvite = (id: string) => setPendingInvites(p => p.filter(i => i.id !== id));
-  const sendInvite = () => {
+  const withdrawInvite = async (id: string) => {
+    try {
+      await apiWithdrawInvite(id);
+      setPendingInvites(p => p.filter(i => i.id !== id));
+    } catch {
+      showToast('Kunne ikke trekke invitasjon', 'x');
+    }
+  };
+
+  const sendInviteHandler = async () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
       showToast('Ugyldig e-postadresse', 'x');
       return;
     }
-    setPendingInvites(p => [...p, { id: Math.random().toString(36).slice(2), email: inviteEmail, sentAt: Date.now() }]);
-    showToast('Invitasjon sendt', 'check');
-    setInviteEmail('');
+    try {
+      const inv = await apiSendInvite(inviteEmail);
+      setPendingInvites(p => [...p, inv]);
+      showToast('Invitasjon sendt', 'check');
+      setInviteEmail('');
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code;
+      showToast(code === 'ALREADY_MEMBER' ? 'Allerede medlem' : 'Kunne ikke sende invitasjon', 'x');
+    }
   };
+
+  useEffect(() => {
+    if (!household) return;
+    listInvites().then(setPendingInvites).catch(() => {});
+  }, [household?.id]);
 
   const scanQR = async () => {
     try {
@@ -103,6 +134,8 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
     showToast('Kode kopiert', 'check');
   };
   const share = () => showToast('Delingslenke klar', 'link');
+
+  const isOwner = household?.members.find(m => m.userId === user?.id)?.role === 'Eier';
 
   if (!household) return null;
 
@@ -167,6 +200,22 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
                   <span style={{ fontSize: 11.5, fontWeight: 800, padding: '4px 10px', borderRadius: 999, background: m.role === 'Eier' ? 'var(--primary-tint)' : 'var(--surface-2)', color: m.role === 'Eier' ? 'var(--on-primary-tint)' : 'var(--ink-3)' }}>
                     {m.role}
                   </span>
+                  {isOwner && m.role !== 'Eier' && (
+                    <Press
+                      onClick={async () => {
+                        try {
+                          await apiKickMember(m.userId);
+                          await householdStore.reload();
+                          showToast(`${m.name} fjernet`, 'check');
+                        } catch {
+                          showToast('Kunne ikke fjerne medlem', 'x');
+                        }
+                      }}
+                      style={{ fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--ink-3)' }}
+                    >
+                      Fjern
+                    </Press>
+                  )}
                 </div>
               ))}
             </Card>
@@ -180,7 +229,7 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
                       <MailIcon />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv.email}</p>
-                        <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--ink-3)' }}>sendt {Math.max(0, Math.floor((Date.now() - inv.sentAt) / 86400000))} dager siden</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--ink-3)' }}>sendt {inv.daysAgo} dager siden</p>
                       </div>
                       <Press onClick={() => withdrawInvite(inv.id)} style={{ fontSize: 12.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--ink-2)' }}>Trekk</Press>
                     </div>
@@ -199,7 +248,7 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
                   onChange={e => setInviteEmail(e.target.value)}
                   style={{ flex: 1, fontSize: 14, fontFamily: 'var(--font)', border: '1.5px solid var(--line)', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', padding: '10px 12px', color: 'var(--ink)', outline: 'none', minWidth: 0 }}
                 />
-                <Press onClick={sendInvite} style={{ fontSize: 13.5, fontWeight: 800, padding: '10px 16px', borderRadius: 'var(--r-sm)', background: 'var(--primary)', color: 'var(--on-primary)', flexShrink: 0 }}>Send</Press>
+                <Press onClick={sendInviteHandler} style={{ fontSize: 13.5, fontWeight: 800, padding: '10px 16px', borderRadius: 'var(--r-sm)', background: 'var(--primary)', color: 'var(--on-primary)', flexShrink: 0 }}>Send</Press>
               </div>
             </Card>
 
@@ -212,9 +261,31 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
               </div>
             </div>
 
-            <Press onClick={() => setMode('join')} style={{ display: 'block', width: '100%', textAlign: 'center', padding: '12px', fontSize: 13.5, fontWeight: 700, color: 'var(--primary)' }}>
-              Bli med i en annen husholdning
-            </Press>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 8 }}>
+              <Press onClick={() => setMode('join')} style={{ display: 'block', width: '100%', textAlign: 'center', padding: '12px', fontSize: 13.5, fontWeight: 700, color: 'var(--primary)' }}>
+                Bli med i en annen husholdning
+              </Press>
+              <Press
+                onClick={async () => {
+                  if (!window.confirm('Er du sikker på at du vil forlate husholdningen?')) return;
+                  setLeaving(true);
+                  try {
+                    const { jwt } = await leaveHousehold();
+                    const refresh = localStorage.getItem('friskr_refresh') ?? '';
+                    setTokens(jwt, refresh);
+                    await householdStore.reload();
+                    onClose();
+                  } catch {
+                    showToast('Kunne ikke forlate husholdning', 'x');
+                  } finally {
+                    setLeaving(false);
+                  }
+                }}
+                style={{ display: 'block', width: '100%', textAlign: 'center', padding: '12px', fontSize: 13.5, fontWeight: 700, color: 'var(--error, #e53e3e)', opacity: leaving ? 0.5 : 1 }}
+              >
+                {leaving ? 'Forlater…' : 'Forlat husholdning'}
+              </Press>
+            </div>
           </>
         ) : (
           /* JOIN flow */
