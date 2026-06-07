@@ -14,6 +14,7 @@ import { Btn } from '../components/Btn';
 import { IconPencil, IconCal, IconCheck, IconCheckCircle, IconGlobe, IconPlus } from '../components/icons';
 import { fmtNO } from '../lib/dates';
 import { CATEGORIES } from '../lib/reference';
+import { setSystemBarsTheme } from '../lib/systemBars';
 
 type Phase = 'scanning' | 'lookup' | 'product' | 'datescan' | 'lookup-date' | 'dateread';
 type ScanSource = 'catalogue' | 'openfoodfacts' | 'none' | 'new';
@@ -168,9 +169,14 @@ export function ScanScreen({ dateOnlyProduct, onDateScanned, onCancelDateScan }:
 
   // start scanning on mount, clean up on unmount
   useEffect(() => {
+    setSystemBarsTheme(true, true);
     if (dateOnly) enterDateScan();
     else startScan();
-    return () => { stopScan(); stopDateStream(); };
+    return () => {
+      stopScan();
+      stopDateStream();
+      setSystemBarsTheme(useSettingsStore.getState().darkMode);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

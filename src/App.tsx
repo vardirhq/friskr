@@ -26,6 +26,7 @@ import { Onboarding } from './screens/Onboarding';
 import { SignInScreen } from './screens/SignInScreen';
 import { CreateOrJoinScreen } from './screens/CreateOrJoinScreen';
 import { syncExpiryNotifications } from './lib/notifications';
+import { setSystemBarsTheme } from './lib/systemBars';
 
 export default function App() {
   const { user: session, loading: authLoading, init } = useAuthStore();
@@ -42,6 +43,7 @@ export default function App() {
   // dark mode
   useEffect(() => {
     document.documentElement.classList.toggle('theme-dark', darkMode);
+    setSystemBarsTheme(darkMode);
   }, [darkMode]);
 
   useEffect(() => {
