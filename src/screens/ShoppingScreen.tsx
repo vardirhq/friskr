@@ -10,6 +10,7 @@ import { Press } from '../components/Press';
 import { CatTile } from '../components/CatTile';
 import type { CategoryId } from '../lib/database.types';
 import { CATEGORIES } from '../lib/friskr';
+import { BulkAddSheet } from './BulkAddSheet';
 
 function ShopRow({
   it,
@@ -92,6 +93,7 @@ export function ShoppingScreen() {
   const shoppingStore = useShoppingStore();
   const { items, suggestions, loading } = shoppingStore;
   const [draft, setDraft] = useState('');
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   useEffect(() => {
     shoppingStore.load();
@@ -222,7 +224,10 @@ export function ShoppingScreen() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 4px 8px' }}>
               <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>I kurven · {done.length}</p>
-              <Press onClick={() => shoppingStore.clearDone()} style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)' }}>Tøm</Press>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Press onClick={() => setBulkOpen(true)} style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)' }}>Legg til lager</Press>
+                <Press onClick={() => shoppingStore.clearDone()} style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)' }}>Tøm</Press>
+              </div>
             </div>
             <Card pad={4} style={{ padding: '2px 14px', opacity: 0.85 }}>
               {done.map((it) => (
@@ -238,6 +243,7 @@ export function ShoppingScreen() {
           </div>
         )}
       </div>
+      <BulkAddSheet open={bulkOpen} onClose={() => setBulkOpen(false)} doneItems={done} />
     </div>
   );
 }
