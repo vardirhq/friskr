@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useUiStore } from '../stores/ui';
+import { useShoppingStore } from '../stores/shopping';
+import type { ShoppingItem } from '../lib/friskr';
 import {
   IconChevL, IconPlus, IconMinus, IconX, IconCheck, IconSpark, IconCart,
 } from '../components/icons';
@@ -8,23 +10,6 @@ import { Press } from '../components/Press';
 import { CatTile } from '../components/CatTile';
 import type { CategoryId } from '../lib/database.types';
 import { CATEGORIES } from '../lib/friskr';
-
-interface ShoppingItem {
-  id: string;
-  name: string;
-  cat: CategoryId;
-  qty: number;
-  done: boolean;
-  auto: boolean;
-}
-
-let _nextId = 1;
-function mkId() { return String(_nextId++); }
-
-const INITIAL_ITEMS: ShoppingItem[] = [
-  { id: mkId(), name: 'Melk', cat: 'meieri', qty: 1, done: false, auto: true },
-  { id: mkId(), name: 'Yoghurt', cat: 'meieri', qty: 2, done: false, auto: true },
-];
 
 function ShopRow({
   it,
@@ -50,7 +35,7 @@ function ShopRow({
       >
         {it.done && <IconCheck size={15} strokeWidth={3} />}
       </Press>
-      <CatTile cat={it.cat} size={38} />
+      <CatTile cat={it.cat as CategoryId} size={38} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{
           margin: 0, fontSize: 14.5, fontWeight: 700,
@@ -58,7 +43,9 @@ function ShopRow({
           textDecoration: it.done ? 'line-through' : 'none',
           color: it.done ? 'var(--ink-3)' : 'var(--ink)',
         }}>{it.name}</p>
-        <p style={{ margin: '1px 0 0', fontSize: 11.5, color: 'var(--ink-3)' }}>{CATEGORIES[it.cat]?.label}</p>
+        <p style={{ margin: '1px 0 0', fontSize: 11.5, color: 'var(--ink-3)' }}>
+          {it.addedBy ? it.addedBy : CATEGORIES[it.cat as CategoryId]?.label}
+        </p>
       </div>
       {!it.done ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -101,33 +88,43 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 }
 
 export function ShoppingScreen() {
-  const { setTab } = useUiStore();
-  const [items, setItems] = useState<ShoppingItem[]>(INITIAL_ITEMS);
+  const { setTab, openSheet, showToast } = useUiStore();
+  const shoppingStore = useShoppingStore();
+  const { items, suggestions, loading } = shoppingStore;
   const [draft, setDraft] = useState('');
+
+  useEffect(() => {
+    shoppingStore.load();
+    shoppingStore.loadSuggestions();
+  }, []);
 
   const toBuy = items.filter((i) => !i.done);
   const done = items.filter((i) => i.done);
-  const suggested = toBuy.filter((i) => i.auto);
-  const manual = toBuy.filter((i) => !i.auto);
+  const manual = items.filter((i) => !i.done);
+
+  const itemNames = new Set(items.map((i) => i.name.toLowerCase()));
+  const filteredSuggestions = suggestions.filter((s) => !itemNames.has(s.name.toLowerCase()));
 
   const submit = () => {
     const name = draft.trim();
     if (!name) return;
-    setItems((prev) => [...prev, { id: mkId(), name, cat: 'annet', qty: 1, done: false, auto: false }]);
+    shoppingStore.add({ name, cat: 'annet', qty: 1 });
     setDraft('');
   };
 
-  const toggle = (id: string) =>
-    setItems((prev) => prev.map((i) => i.id === id ? { ...i, done: !i.done } : i));
-
-  const remove = (id: string) =>
-    setItems((prev) => prev.filter((i) => i.id !== id));
-
-  const setQty = (id: string, qty: number) =>
-    setItems((prev) => prev.map((i) => i.id === id ? { ...i, qty } : i));
-
-  const clearDone = () =>
-    setItems((prev) => prev.filter((i) => !i.done));
+  const toggle = (it: ShoppingItem) => {
+    const becomingDone = !it.done;
+    shoppingStore.toggle(it.id, becomingDone);
+    if (becomingDone) {
+      const product = it.productId
+        ? { id: it.productId, name: it.name, cat: it.cat as CategoryId, brand: '', shelf: null } as import('../lib/friskr').Product
+        : undefined;
+      showToast(`${it.name} i kurven`, undefined, {
+        label: 'Legg til på lager',
+        onAction: () => openSheet({ type: 'add', product }),
+      });
+    }
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -163,33 +160,46 @@ export function ShoppingScreen() {
           )}
         </div>
 
-        {items.length === 0 && (
+        {/* Loading spinner */}
+        {loading && items.length === 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '48px 0' }}>
+            <div className="friskr-spin" style={{ width: 32, height: 32, borderRadius: 999, border: '3px solid var(--line)', borderTopColor: 'var(--primary)' }} />
+          </div>
+        )}
+
+        {!loading && items.length === 0 && filteredSuggestions.length === 0 && (
           <EmptyState title="Tom handleliste" body="Legg til varer, eller la friskr foreslå basert på det du bruker opp." />
         )}
 
         {/* friskr suggestions */}
-        {suggested.length > 0 && (
+        {filteredSuggestions.length > 0 && (
           <div style={{ marginBottom: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 4px 8px' }}>
               <span style={{ color: 'var(--primary)', display: 'flex' }}><IconSpark size={15} /></span>
               <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Foreslått av friskr</p>
             </div>
             <Card pad={4} style={{ padding: '2px 14px' }}>
-              {suggested.map((it) => (
-                <ShopRow
-                  key={it.id}
-                  it={it}
-                  onToggle={() => toggle(it.id)}
-                  onRemove={() => remove(it.id)}
-                  onQty={(n) => setQty(it.id, n)}
-                />
+              {filteredSuggestions.map((s) => (
+                <div key={s.productId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 4px', borderBottom: '1px solid var(--line-2)' }}>
+                  <CatTile cat={s.cat as CategoryId} size={38} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</p>
+                    <p style={{ margin: '1px 0 0', fontSize: 11.5, color: 'var(--ink-3)' }}>{CATEGORIES[s.cat as CategoryId]?.label}</p>
+                  </div>
+                  <Press
+                    onClick={() => shoppingStore.add({ name: s.name, cat: s.cat, qty: 1, productId: s.productId, auto: true })}
+                    style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--primary-tint)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <IconPlus size={17} />
+                  </Press>
+                </div>
               ))}
             </Card>
             <p style={{ margin: '8px 4px 0', fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.4 }}>Basert på varer du nylig brukte opp eller gikk tom for.</p>
           </div>
         )}
 
-        {/* manual to-buy */}
+        {/* to-buy (manual + auto already on list) */}
         {manual.length > 0 && (
           <div style={{ marginBottom: 18 }}>
             <p style={{ margin: '0 4px 8px', fontSize: 12, fontWeight: 800, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Å kjøpe</p>
@@ -198,9 +208,9 @@ export function ShoppingScreen() {
                 <ShopRow
                   key={it.id}
                   it={it}
-                  onToggle={() => toggle(it.id)}
-                  onRemove={() => remove(it.id)}
-                  onQty={(n) => setQty(it.id, n)}
+                  onToggle={() => toggle(it)}
+                  onRemove={() => shoppingStore.remove(it.id)}
+                  onQty={(n) => shoppingStore.setQty(it.id, n)}
                 />
               ))}
             </Card>
@@ -212,16 +222,16 @@ export function ShoppingScreen() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 4px 8px' }}>
               <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>I kurven · {done.length}</p>
-              <Press onClick={clearDone} style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)' }}>Tøm</Press>
+              <Press onClick={() => shoppingStore.clearDone()} style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)' }}>Tøm</Press>
             </div>
             <Card pad={4} style={{ padding: '2px 14px', opacity: 0.85 }}>
               {done.map((it) => (
                 <ShopRow
                   key={it.id}
                   it={it}
-                  onToggle={() => toggle(it.id)}
-                  onRemove={() => remove(it.id)}
-                  onQty={(n) => setQty(it.id, n)}
+                  onToggle={() => toggle(it)}
+                  onRemove={() => shoppingStore.remove(it.id)}
+                  onQty={(n) => shoppingStore.setQty(it.id, n)}
                 />
               ))}
             </Card>
