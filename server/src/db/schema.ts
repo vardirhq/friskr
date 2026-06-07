@@ -97,3 +97,17 @@ export const stockItems = pgTable('stock_items', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp('resolved_at', { withTimezone: true }),
 });
+
+export const shoppingListItems = pgTable('shopping_list_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  householdId: uuid('household_id').notNull().references(() => households.id, { onDelete: 'cascade' }),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  cat: text('cat').notNull().default('annet'),
+  qty: integer('qty').notNull().default(1),
+  done: boolean('done').notNull().default(false),
+  auto: boolean('auto').notNull().default(false),
+  addedBy: uuid('added_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  doneAt: timestamp('done_at', { withTimezone: true }),
+});
