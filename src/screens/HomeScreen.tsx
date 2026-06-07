@@ -143,7 +143,7 @@ export function HomeScreen() {
     .sort((a, b) => (a.off ?? 0) - (b.off ?? 0)).slice(0, 4);
 
   const hour = new Date().getHours();
-  const greet = hour < 10 ? 'God morgen' : hour < 18 ? 'God ettermiddag' : 'God kveld';
+  const greet = hour < 10 ? 'God morgen' : hour < 12 ? 'God formiddag' : hour < 14 ? 'God middag' : hour < 18 ? 'God ettermiddag' : 'God kveld';
   const attention = counts.expired + counts.soon;
   const month = ['jan','feb','mars','apr','mai','juni','juli','aug','sep','okt','nov','des'][new Date().getMonth()];
 
