@@ -108,10 +108,14 @@ export async function restoreStock(id: string): Promise<void> {
   await api.patch(`/api/stock/${id}/restore`);
 }
 
-export async function householdStats(_householdId: string, since: Date) {
-  return api.get<{ saved: number; savedKr: number; wasted: number }>(
-    `/api/stock/stats?since=${since.toISOString()}`
-  );
+export interface StatsData {
+  months: { month: string; saved: number; wasted: number; kr: number }[];
+  byCategory: { cat: string; wasted: number }[];
+  totals: { saved: number; wasted: number; kr: number };
+}
+
+export async function fetchStats(): Promise<StatsData> {
+  return api.get<StatsData>('/api/stock/stats');
 }
 
 export async function listProducts(_householdId: string): Promise<Product[]> {

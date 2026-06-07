@@ -1,18 +1,15 @@
 import { create } from 'zustand';
 import type { StockItem, SavePayload } from '../lib/friskr';
 import {
-  listStock, countsOf, householdStats,
+  listStock, countsOf,
   saveStock, consumeStock, discardStock, restoreStock,
 } from '../lib/friskr';
 import { subscribeHousehold } from '../lib/realtime';
 
 export interface Counts { fresh: number; soon: number; expired: number; total: number }
-export interface Stats { saved: number; savedKr: number; wasted: number }
-
 interface StockStore {
   items: StockItem[];
   counts: Counts;
-  stats: Stats;
   loading: boolean;
   load(householdId: string): Promise<void>;
   save(householdId: string, payload: SavePayload): Promise<void>;
@@ -28,7 +25,6 @@ let unsubFn: (() => void) | null = null;
 export const useStockStore = create<StockStore>((set, get) => ({
   items: [],
   counts: { fresh: 0, soon: 0, expired: 0, total: 0 },
-  stats: { saved: 0, savedKr: 0, wasted: 0 },
   loading: false,
 
   async load(householdId) {
@@ -36,11 +32,7 @@ export const useStockStore = create<StockStore>((set, get) => ({
     try {
       const items = await listStock(householdId);
       const counts = countsOf(items);
-      const since = new Date();
-      since.setDate(1);
-      since.setHours(0, 0, 0, 0);
-      const stats = await householdStats(householdId, since);
-      set({ items, counts, stats });
+      set({ items, counts });
     } finally {
       set({ loading: false });
     }

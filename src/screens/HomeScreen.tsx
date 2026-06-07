@@ -129,7 +129,7 @@ function NotifPanel({ notifs, unreadCount, onMarkAll, onClose, onOpenItem }: { n
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export function HomeScreen() {
-  const { items, counts, stats } = useStockStore();
+  const { items, counts } = useStockStore();
   const { household } = useHouseholdStore();
   const { setTab, openSheet } = useUiStore();
   const { user } = useAuthStore();
@@ -145,9 +145,7 @@ export function HomeScreen() {
   const hour = new Date().getHours();
   const greet = hour < 10 ? 'God morgen' : hour < 18 ? 'God ettermiddag' : 'God kveld';
   const attention = counts.expired + counts.soon;
-  const month = ['jan','feb','mars','apr','mai','juni','juli','aug','sep','okt','nov','des'][new Date().getMonth()];
-
-  const notifs = useMemo(() => buildNotifs(items, household?.members ?? []), [items, household?.members]);
+const notifs = useMemo(() => buildNotifs(items, household?.members ?? []), [items, household?.members]);
   const notifsView = notifs.map((n) => ({ ...n, unread: n.unread && !readIds[n.id] }));
   const unreadCount = notifsView.filter((n) => n.unread).length;
   const markAll = () => setReadIds(Object.fromEntries(notifs.map((n) => [n.id, true])));
@@ -247,20 +245,12 @@ export function HomeScreen() {
                 <IconLeaf size={24} />
               </div>
               <div style={{ flex: 1 }}>
-                {stats.saved > 0 ? (
-                  <>
-                    <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700, lineHeight: 1.3 }}>
-                      Du reddet <span className="tnum" style={{ color: 'var(--on-primary-tint)' }}>{stats.saved} varer</span> fra søpla i {month}
-                    </p>
-                    <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'var(--ink-2)' }}>
-                      {stats.savedKr > 0 ? <>≈ <span className="tnum">{Math.round(stats.savedKr)}</span> kr spart</> : 'Fortsett den gode jobben!'}
-                    </p>
-                  </>
-                ) : (
-                  <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700, lineHeight: 1.3 }}>
-                    Legg til priser når du fyller på, så ser du hvor mye du sparer
-                  </p>
-                )}
+                <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700, lineHeight: 1.3 }}>
+                  Se statistikk for matsvinn og sparing
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'var(--ink-2)' }}>
+                  Trykk for å se detaljert oversikt
+                </p>
               </div>
               <span style={{ color: 'var(--primary)', display: 'flex' }}><IconTrend size={22} /></span>
             </div>
