@@ -1,4 +1,4 @@
-package com.example.myapp;
+package dev.madsens.friskr;
 
 import com.getcapacitor.BridgeActivity;
 

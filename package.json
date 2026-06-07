@@ -11,10 +11,10 @@
     "typecheck": "tsc --noEmit",
     "deploy:phone": "adb install -r android/app/build/outputs/apk/debug/app-debug.apk",
     "deploy:phone-force": "adb install -r -d android/app/build/outputs/apk/debug/app-debug.apk",
-    "deploy:uninstall": "adb uninstall com.example.myapp",
+    "deploy:uninstall": "adb uninstall dev.madsens.friskr",
     "deploy:list": "adb devices",
-    "deploy:logcat": "adb logcat | grep -i \"MyApp\"",
-    "deploy:clean": "adb shell pm clear com.example.myapp"
+    "deploy:logcat": "adb logcat | grep -i \"Friskr\"",
+    "deploy:clean": "adb shell pm clear dev.madsens.friskr"
   },
   "dependencies": {
     "@capacitor-mlkit/barcode-scanning": "^8.1.0",
@@ -25,10 +25,10 @@
     "@capacitor/core": "^8.4.0",
     "@capacitor/local-notifications": "^8.2.0",
     "@capacitor/push-notifications": "^8.1.1",
-    "tesseract.js": "^7.0.0",
     "deploid-plugin-deploy-android": "^0.1.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "tesseract.js": "^7.0.0",
     "zustand": "^5.0.5"
   },
   "devDependencies": {

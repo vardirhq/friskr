@@ -1,5 +1,5 @@
 {
-  "appId": "app.friskr",
+  "appId": "dev.madsens.friskr",
   "appName": "Friskr",
   "webDir": "dist",
   "bundledWebRuntime": false,
