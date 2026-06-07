@@ -150,8 +150,23 @@ export async function householdRoutes(app: FastifyInstance) {
     }
 
     const [hh] = await db.select().from(households).where(eq(households.id, householdId)).limit(1);
+    if (!hh) return reply.code(404).send({ error: 'Household not found', code: 'NOT_FOUND' });
 
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const [existing] = await db.select()
+      .from(householdInvites)
+      .where(and(
+        eq(householdInvites.householdId, householdId),
+        eq(householdInvites.email, email),
+        isNull(householdInvites.acceptedAt),
+        gt(householdInvites.expiresAt, new Date()),
+      ))
+      .limit(1);
+    if (existing) {
+      return { id: existing.id, email: existing.email, createdAt: existing.createdAt };
+    }
+
     const [invite] = await db
       .insert(householdInvites)
       .values({ householdId, email, sentByUserId: userId, expiresAt })
@@ -218,12 +233,14 @@ export async function householdRoutes(app: FastifyInstance) {
       .where(eq(householdMembers.householdId, householdId))
       .orderBy(householdMembers.joinedAt);
 
+    const self = members.find(m => m.userId === userId);
+    if (!self) return reply.code(403).send({ error: 'Not a member', code: 'FORBIDDEN' });
+
     if (members.length === 1) {
       // only member — delete the household (cascade removes members/invites)
       await db.delete(households).where(eq(households.id, householdId));
     } else {
-      const self = members.find((m) => m.userId === userId);
-      if (self?.role === 'owner') {
+      if (self.role === 'owner') {
         // transfer ownership to oldest non-self member
         const newOwner = members.find((m) => m.userId !== userId);
         if (newOwner) {
