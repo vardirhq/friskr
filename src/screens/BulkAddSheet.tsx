@@ -19,7 +19,7 @@ const FIELD_LABEL: React.CSSProperties = {
 };
 
 const EXPIRY_CHIPS = [
-  { label: 'Ingen dato', days: 7 },
+  { label: 'Ingen dato', days: 30 },
   { label: '+3 d', days: 3 },
   { label: '+1 uke', days: 7 },
   { label: '+2 uker', days: 14 },
@@ -54,7 +54,6 @@ export function BulkAddSheet({ open, onClose, doneItems }: BulkAddSheetProps) {
         itemsWithProduct.map((item) => {
           const chipIdx = getItemDaysIdx(item.id);
           const chip = EXPIRY_CHIPS[chipIdx];
-          // "Ingen dato" maps to off=7 as fallback
           const off = chip.days;
           const product = {
             id: item.productId!,
