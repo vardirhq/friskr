@@ -20,10 +20,19 @@ function formatMonth(yyyyMM: string): string {
 export function StatsScreen() {
   const { setTab } = useUiStore();
   const [data, setData] = useState<StatsData | null>(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetchStats().then(setData).catch(console.error);
+    fetchStats().then(setData).catch(() => setError(true));
   }, []);
+
+  if (error) {
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 32px' }}>
+        <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--ink-3)' }}>Kunne ikke laste statistikk. Prøv igjen.</p>
+      </div>
+    );
+  }
 
   if (data === null) {
     return (
@@ -39,7 +48,7 @@ export function StatsScreen() {
     ? Math.round((totals.saved / (totals.saved + totals.wasted)) * 100)
     : 0;
 
-  const best = months.length > 0
+  const best = months.some((m) => m.saved + m.wasted > 0)
     ? months.reduce((a, b) => (b.saved - b.wasted > a.saved - a.wasted ? b : a))
     : null;
 
