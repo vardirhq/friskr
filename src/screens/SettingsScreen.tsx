@@ -61,7 +61,7 @@ export function SettingsScreen() {
   const langLabel = (LANGS.find(l => l[0] === language) ?? LANGS[0])[1];
 
   return (
-    <div className="noscroll" style={{ height: '100%', overflow: 'auto', padding: '14px 16px 24px' }}>
+    <div className="noscroll" style={{ height: '100%', overflow: 'auto', padding: '14px 16px 36px' }}>
       <h1 style={{ margin: '0 2px 16px', fontSize: 25, fontWeight: 800, letterSpacing: -0.5 }}>Innstillinger</h1>
 
       {/* profile */}

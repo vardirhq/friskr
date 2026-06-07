@@ -187,7 +187,7 @@ export function StockScreen() {
         <h1 style={{ margin: '0 2px 14px', fontSize: 25, fontWeight: 800, letterSpacing: -0.5 }}>Lager</h1>
         <Segmented tabs={tabs} value={tab} onChange={setTab} />
       </div>
-      <div className="noscroll" style={{ flex: 1, overflow: 'auto', padding: '2px 16px 24px' }}>
+      <div className="noscroll" style={{ flex: 1, overflow: 'auto', padding: '2px 16px 36px' }}>
         {tab === 'loc' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {locationGroups.map(({ key, meta, items: li }) => {

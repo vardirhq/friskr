@@ -122,8 +122,7 @@ export default function App() {
         <ActiveScreen />
       ) : (
         <>
-          {/* scrollable screen area — paddingBottom clears the FAB overhang */}
-          <div className="noscroll" style={{ flex: 1, overflowY: 'auto', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 36 }}>
+          <div className="noscroll" style={{ flex: 1, overflowY: 'auto', paddingTop: 'env(safe-area-inset-top)' }}>
             <ActiveScreen />
           </div>
 

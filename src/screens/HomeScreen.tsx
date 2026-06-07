@@ -153,7 +153,7 @@ export function HomeScreen() {
   const markAll = () => setReadIds(Object.fromEntries(notifs.map((n) => [n.id, true])));
 
   return (
-    <div style={{ padding: '6px 16px 20px' }}>
+    <div style={{ padding: '6px 16px 36px' }}>
       {/* header */}
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '6px 2px 18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

@@ -63,7 +63,7 @@ export function ProductsScreen() {
         })}
       </div>
 
-      <div className="noscroll" style={{ flex: 1, overflow: 'auto', padding: '2px 16px 24px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+      <div className="noscroll" style={{ flex: 1, overflow: 'auto', padding: '2px 16px 36px', display: 'flex', flexDirection: 'column', gap: 9 }}>
         {list.length === 0 && (
           <div style={{ textAlign: 'center', padding: '46px 24px' }}>
             <div style={{ width: 72, height: 72, borderRadius: 24, background: 'var(--primary-tint)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
