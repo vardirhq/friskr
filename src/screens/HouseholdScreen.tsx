@@ -78,9 +78,9 @@ export function HouseholdScreen({ onClose }: HouseholdScreenProps) {
       setScanning(true);
       document.documentElement.classList.add('barcode-scanning');
 
-      await BarcodeScanner.addListener('barcodeScanned', async ({ barcode }) => {
-        const val = barcode.rawValue ?? '';
-        if (val.startsWith('FRISK-') || val.length > 0) {
+      await BarcodeScanner.addListener('barcodesScanned', async ({ barcodes }) => {
+        const val = barcodes[0]?.rawValue ?? '';
+        if (val.length > 0) {
           await BarcodeScanner.stopScan();
           await BarcodeScanner.removeAllListeners();
           document.documentElement.classList.remove('barcode-scanning');
