@@ -148,7 +148,7 @@ export async function shoppingRoutes(app: FastifyInstance) {
       .limit(1);
     if (!existing[0]) return reply.code(404).send({ error: 'Not found', code: 'NOT_FOUND' });
 
-    await db.delete(shoppingListItems).where(eq(shoppingListItems.id, id));
+    await db.delete(shoppingListItems).where(and(eq(shoppingListItems.id, id), eq(shoppingListItems.householdId, householdId!)));
 
     broadcastChange(householdId);
     return { ok: true };
