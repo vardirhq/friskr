@@ -33,7 +33,9 @@ export const jwtAuthPlugin = fp(async (app: FastifyInstance) => {
 
   await app.register(jwtPlugin, {
     secret: secret ?? 'test-only-secret',
-    sign: { expiresIn: '7d' },
+    // Short-lived access token; clients transparently refresh via /auth/refresh
+    // (rotating refresh tokens) on a 401. Tunable, but keep it minutes-to-an-hour.
+    sign: { expiresIn: process.env.JWT_TTL ?? '1h' },
   });
 
   const requireAuth = async (req: FastifyRequest, reply: FastifyReply) => {
