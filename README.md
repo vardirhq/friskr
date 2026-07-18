@@ -331,7 +331,8 @@ DELETE /api/shopping/:id
 GET    /api/shopping/suggestions
 
 GET    /api/scan?barcode=<code>
-GET    /api/realtime/household?token=<jwt>
+POST   /api/realtime/ticket
+GET    /api/realtime/household?ticket=<ticket>
 GET    /health
 ```
 
@@ -376,6 +377,13 @@ Fastify listens on a dedicated connection and fans changes out over an SSE
 stream. The client reloads stock and shopping data when a household event
 arrives.
 
+The SSE endpoint is not authenticated with the access JWT directly. The client
+first calls `POST /api/realtime/ticket` (with its bearer token) to mint a
+short-lived, single-use realtime ticket, then opens
+`GET /api/realtime/household?ticket=<ticket>`. Tickets expire after 30 seconds,
+are consumed on first use, and are validated against live household membership
+on the keepalive, so a stale or revoked session drops the stream.
+
 Expiry alerts are local Android notifications. They are resynchronized when
 stock changes and whenever the app resumes. Notification settings are stored on
 the device.
@@ -410,7 +418,9 @@ in the `locations`, `products`, or `stock_items` tables can surface here.
 - Confirm the PostgreSQL notification triggers exist.
 - Check the API's dedicated `LISTEN` connection.
 - Ensure the reverse proxy does not buffer or prematurely close SSE responses.
-- Confirm the JWT in the SSE URL is current.
+- Confirm the client can reach `POST /api/realtime/ticket` (a fresh, unexpired
+  ticket is required for every SSE connection; tickets are single-use and
+  expire after 30 seconds).
 
 ### Android changes are missing
 

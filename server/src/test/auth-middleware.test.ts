@@ -7,12 +7,13 @@ import type { FastifyInstance } from 'fastify';
 let app: FastifyInstance;
 
 beforeAll(async () => {
-  app = await createTestApp();
-  // Add a protected test route
-  app.get('/test-protected', { preHandler: app.requireAuth }, async (req) => ({
-    userId: req.user.userId,
-  }));
-  await app.ready();
+  // Register the protected test route before the instance is ready (Fastify
+  // rejects route registration once listening).
+  app = await createTestApp((a) => {
+    a.get('/test-protected', { preHandler: a.requireAuth }, async (req) => ({
+      userId: req.user.userId,
+    }));
+  });
 });
 
 beforeEach(cleanDb);

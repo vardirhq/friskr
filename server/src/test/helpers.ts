@@ -7,8 +7,13 @@ import {
 import { isNotNull } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 
-export async function createTestApp(): Promise<FastifyInstance> {
+export async function createTestApp(
+  configure?: (app: FastifyInstance) => void | Promise<void>,
+): Promise<FastifyInstance> {
   const app = await buildApp({ logger: false });
+  // Routes must be registered before the instance is ready/listening, so any
+  // test-only routes are added here rather than after createTestApp returns.
+  if (configure) await configure(app);
   await app.ready();
   return app;
 }
